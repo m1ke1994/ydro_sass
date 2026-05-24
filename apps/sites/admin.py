@@ -18,6 +18,7 @@ class SiteSectionInline(admin.TabularInline):
         "schema",
         "content",
         "settings",
+        "seo",
     )
     ordering = ("order", "name")
     show_change_link = True
@@ -75,6 +76,7 @@ class SiteSectionAdmin(admin.ModelAdmin):
         ),
         ("\u0414\u0430\u043d\u043d\u044b\u0435 \u0441\u0435\u043a\u0446\u0438\u0438", {"fields": ("schema", "content")}),
         ("\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0441\u0435\u043a\u0446\u0438\u0438", {"fields": ("component_key", "settings")}),
+        ("SEO", {"fields": ("seo",)}),
         ("\u041f\u0440\u0435\u0434\u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 \u0441\u0445\u0435\u043c\u044b", {"fields": ("schema_preview",)}),
         (
             "\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",

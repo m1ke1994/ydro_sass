@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -37,7 +37,7 @@ async function load() {
     contentModel.value = clone(data?.content || {})
     settingsText.value = JSON.stringify(data?.settings || {}, null, 2)
   } catch (error) {
-    errorMessage.value = error?.response?.data?.detail || 'Не удалось загрузить раздел.'
+    errorMessage.value = error?.response?.data?.detail || 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЂР°Р·РґРµР».'
   } finally {
     loading.value = false
   }
@@ -49,25 +49,19 @@ async function save() {
   successMessage.value = ''
 
   try {
-    const parsedSettings = JSON.parse(settingsText.value || '{}')
     await sectionsStore.patchSection(sectionSlug.value, {
       content: contentModel.value,
-      settings: parsedSettings,
     })
 
-    successMessage.value = 'Сохранено'
+    successMessage.value = 'РЎРѕС…СЂР°РЅРµРЅРѕ'
     setTimeout(() => {
       successMessage.value = ''
     }, 2500)
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      errorMessage.value = 'Невалидный JSON в блоке настроек.'
-    } else {
-      const detail = error?.response?.data
-      errorMessage.value = detail && typeof detail === 'object'
-        ? JSON.stringify(detail, null, 2)
-        : 'Ошибка при сохранении.'
-    }
+    const detail = error?.response?.data
+    errorMessage.value = detail && typeof detail === 'object'
+      ? JSON.stringify(detail, null, 2)
+      : 'РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё.'
   } finally {
     saving.value = false
   }
@@ -80,7 +74,7 @@ onMounted(load)
   <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <RouterLink to="/sections" class="text-sm font-medium text-brand-700 hover:text-brand-800">← К разделам</RouterLink>
+        <RouterLink to="/sections" class="text-sm font-medium text-brand-700 hover:text-brand-800">в†ђ Рљ СЂР°Р·РґРµР»Р°Рј</RouterLink>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ sectionTitle }}</h1>
       </div>
 
@@ -90,7 +84,7 @@ onMounted(load)
         :disabled="saving || loading"
         @click="save"
       >
-        {{ saving ? 'Сохранение...' : 'Сохранить' }}
+        {{ saving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ' }}
       </button>
     </div>
 
@@ -103,22 +97,23 @@ onMounted(load)
     </div>
 
     <section v-if="loading" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <p class="text-sm text-slate-500">Загрузка секции...</p>
+      <p class="text-sm text-slate-500">Р—Р°РіСЂСѓР·РєР° СЃРµРєС†РёРё...</p>
     </section>
 
     <section v-else class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900">Контент</h2>
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">РљРѕРЅС‚РµРЅС‚</h2>
       <DynamicForm v-model="contentModel" :schema="schema" />
     </section>
 
     <section v-if="!loading" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900">Настройки секции</h2>
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">РќР°СЃС‚СЂРѕР№РєРё СЃРµРєС†РёРё</h2>
       <textarea
         v-model="settingsText"
-        class="min-h-40 w-full rounded-xl border border-slate-300 px-3 py-2 font-mono text-xs outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        readonly
+        class="min-h-40 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs outline-none"
       />
       <p class="mt-2 text-xs text-slate-500">
-        JSON-объект для `theme`, `spacing`, `animation`, `background`, `container`, `visible`, `custom_classes`.
+        РќР°СЃС‚СЂРѕР№РєРё РѕС‚РѕР±СЂР°Р¶Р°СЋС‚СЃСЏ РґР»СЏ СЃРїСЂР°РІРєРё. Р’ client API СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ `content`.
       </p>
     </section>
   </div>

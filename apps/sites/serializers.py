@@ -1,4 +1,4 @@
-from django.core.exceptions import ValidationError as DjangoValidationError
+﻿from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
 from .models import Site, SiteSection
@@ -31,6 +31,7 @@ class SiteSectionSerializer(serializers.ModelSerializer):
             "schema",
             "content",
             "settings",
+            "seo",
             "is_active",
         )
 
@@ -64,6 +65,7 @@ class ClientSiteSectionSerializer(serializers.ModelSerializer):
             "schema",
             "content",
             "settings",
+            "seo",
             "created_at",
             "updated_at",
         )
@@ -81,19 +83,20 @@ class SiteSectionFormSerializer(serializers.ModelSerializer):
             "schema",
             "content",
             "settings",
+            "seo",
         )
 
 
 class ClientSiteSectionUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteSection
-        fields = ("content", "settings")
+        fields = ("content",)
 
     def validate(self, attrs):
-        forbidden_fields = set(self.initial_data.keys()) - {"content", "settings"}
+        forbidden_fields = set(self.initial_data.keys()) - {"content"}
         if forbidden_fields:
             details = {
-                field: "Это поле недоступно для изменения в client API."
+                field: "This field is read-only in client API."
                 for field in sorted(forbidden_fields)
             }
             raise serializers.ValidationError(details)
@@ -108,18 +111,6 @@ class ClientSiteSectionUpdateSerializer(serializers.ModelSerializer):
             SiteSection.validate_content(content=value, schema=self.instance.schema)
         except DjangoValidationError as exc:
             details = exc.message_dict.get("content", exc.messages)
-            raise serializers.ValidationError(details)
-
-        return value
-
-    def validate_settings(self, value):
-        if self.instance is None:
-            return value
-
-        try:
-            SiteSection.validate_settings(settings=value)
-        except DjangoValidationError as exc:
-            details = exc.message_dict.get("settings", exc.messages)
             raise serializers.ValidationError(details)
 
         return value

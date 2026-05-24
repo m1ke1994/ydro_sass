@@ -8,7 +8,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const form = reactive({
-  username: 'meditation',
+  username: 'meditation_owner',
   password: 'test-test',
 })
 
@@ -48,7 +48,7 @@ async function submit() {
             type="text"
             autocomplete="username"
             class="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            placeholder="meditation"
+            placeholder="meditation_owner"
           />
         </div>
 

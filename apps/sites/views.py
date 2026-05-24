@@ -1,8 +1,7 @@
-from django.db.models import Count, Q
+﻿from django.db.models import Count, Q
 from rest_framework import generics
 from rest_framework.exceptions import NotFound
-from rest_framework.permissions import AllowAny
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -15,16 +14,6 @@ from .serializers import (
     SiteSectionSerializer,
     SiteSerializer,
 )
-
-
-class PublicSiteListView(generics.ListAPIView):
-    serializer_class = SiteSerializer
-    permission_classes = [AllowAny]
-
-    def get_queryset(self):
-        return Site.objects.filter(is_active=True).annotate(
-            sections_count=Count("sections", filter=Q(sections__is_active=True))
-        )
 
 
 class PublicSiteDetailView(generics.RetrieveAPIView):
@@ -56,12 +45,12 @@ class ClientSiteMixin:
     def get_client_site(self):
         site = (
             Site.objects.filter(owner=self.request.user, is_active=True)
-            .annotate(sections_count=Count("sections"))
+            .annotate(sections_count=Count("sections", filter=Q(sections__is_active=True)))
             .order_by("id")
             .first()
         )
         if site is None:
-            raise NotFound(detail="Активный сайт пользователя не найден.")
+            raise NotFound(detail="Active site for current user was not found.")
         return site
 
 
@@ -95,7 +84,7 @@ class ClientSiteSectionFormView(ClientSiteMixin, APIView):
     def get(self, request, slug, *args, **kwargs):
         section = SiteSection.objects.filter(site=self.get_client_site(), slug=slug).first()
         if section is None:
-            raise NotFound(detail="Раздел сайта не найден.")
+            raise NotFound(detail="Section for current user site was not found.")
 
         serializer = SiteSectionFormSerializer(section)
         section_data = serializer.data

@@ -1,4 +1,4 @@
-from django.db.models import QuerySet
+﻿from django.db.models import QuerySet
 from rest_framework import generics
 from rest_framework.exceptions import NotFound
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -16,7 +16,7 @@ class ClientMediaAccessMixin:
     def get_client_site(self) -> Site:
         site = Site.objects.filter(owner=self.request.user, is_active=True).order_by("id").first()
         if site is None:
-            raise NotFound(detail="Активный сайт пользователя не найден.")
+            raise NotFound(detail="Active site for current user was not found.")
         return site
 
     def get_queryset(self) -> QuerySet[MediaFile]:

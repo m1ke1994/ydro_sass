@@ -267,6 +267,7 @@ class SiteSection(models.Model):
     content = models.JSONField(default=dict, blank=True, verbose_name="\u041a\u043e\u043d\u0442\u0435\u043d\u0442")
     component_key = models.CharField(max_length=100, blank=True, verbose_name="\u041a\u043b\u044e\u0447 \u043a\u043e\u043c\u043f\u043e\u043d\u0435\u043d\u0442\u0430")
     settings = models.JSONField(default=dict, blank=True, verbose_name="\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0441\u0435\u043a\u0446\u0438\u0438")
+    seo = models.JSONField(default=dict, blank=True, verbose_name="SEO settings")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
