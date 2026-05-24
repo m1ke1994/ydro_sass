@@ -1,8 +1,9 @@
-from copy import deepcopy
+﻿from copy import deepcopy
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.text import slugify
 
 from .presets import (
     ABOUT_SCHEMA,
@@ -14,15 +15,6 @@ from .presets import (
     SERVICES_DEFAULT_SETTINGS,
     SERVICES_SCHEMA,
 )
-
-SECTION_TYPES = [
-    ("hero", "Hero"),
-    ("about", "\u041e \u043a\u043e\u043c\u043f\u0430\u043d\u0438\u0438"),
-    ("services", "\u0423\u0441\u043b\u0443\u0433\u0438"),
-    ("reviews", "\u041e\u0442\u0437\u044b\u0432\u044b"),
-    ("gallery", "\u0413\u0430\u043b\u0435\u0440\u0435\u044f"),
-    ("contacts", "\u041a\u043e\u043d\u0442\u0430\u043a\u0442\u044b"),
-]
 
 SUPPORTED_FIELD_TYPES = {
     "text",
@@ -39,6 +31,7 @@ AUTO_SCHEMA_BY_SECTION_TYPE = {
     "hero": HERO_SCHEMA,
     "about": ABOUT_SCHEMA,
     "services": SERVICES_SCHEMA,
+    "meditations": SERVICES_SCHEMA,
     "reviews": REVIEWS_SCHEMA,
     "contacts": CONTACTS_SCHEMA,
 }
@@ -47,13 +40,18 @@ AUTO_COMPONENT_KEY_BY_SECTION_TYPE = {
     "hero": "hero-centered",
     "about": "about-simple",
     "services": "services-grid",
+    "meditations": "services-grid",
     "reviews": "reviews-slider",
     "gallery": "gallery-grid",
+    "contacts": "contacts-simple",
+    "prices": "prices-grid",
+    "footer": "footer-simple",
 }
 
 AUTO_SETTINGS_BY_SECTION_TYPE = {
     "hero": HERO_DEFAULT_SETTINGS,
     "services": SERVICES_DEFAULT_SETTINGS,
+    "meditations": SERVICES_DEFAULT_SETTINGS,
     "reviews": REVIEWS_DEFAULT_SETTINGS,
 }
 
@@ -79,56 +77,56 @@ def _get_schema_fields(schema):
 
 def _validate_fields_schema(fields, path):
     if not isinstance(fields, list):
-        _schema_error(f"{path}: ожидается список полей.")
+        _schema_error(f"{path}: expected a list of fields.")
 
     seen_keys = set()
     for index, field in enumerate(fields):
         field_path = f"{path}[{index}]"
 
         if not isinstance(field, dict):
-            _schema_error(f"{field_path}: поле должно быть объектом.")
+            _schema_error(f"{field_path}: field must be an object.")
 
         key = field.get("key")
         if not isinstance(key, str) or not key.strip():
-            _schema_error(f"{field_path}: поле key обязательно и должно быть строкой.")
+            _schema_error(f"{field_path}: key is required and must be a string.")
         key = key.strip()
 
         if key in seen_keys:
-            _schema_error(f"{field_path}: key '{key}' дублируется.")
+            _schema_error(f"{field_path}: duplicate key '{key}'.")
         seen_keys.add(key)
 
         field_type = field.get("type")
         if not isinstance(field_type, str) or not field_type.strip():
-            _schema_error(f"{field_path}: поле type обязательно и должно быть строкой.")
+            _schema_error(f"{field_path}: type is required and must be a string.")
         field_type = field_type.strip()
 
         if field_type not in SUPPORTED_FIELD_TYPES:
-            _schema_error(f"{field_path}: type '{field_type}' не поддерживается.")
+            _schema_error(f"{field_path}: unsupported type '{field_type}'.")
 
         required = field.get("required")
         if required is not None and not isinstance(required, bool):
-            _schema_error(f"{field_path}: required должно быть boolean.")
+            _schema_error(f"{field_path}: required must be a boolean.")
 
         for string_field in ("label", "placeholder", "help_text"):
             value = field.get(string_field)
             if value is not None and not isinstance(value, str):
-                _schema_error(f"{field_path}: {string_field} должно быть строкой.")
+                _schema_error(f"{field_path}: {string_field} must be a string.")
 
         if field_type == "select":
             options = field.get("options")
             if options is not None and not isinstance(options, list):
-                _schema_error(f"{field_path}: options должно быть списком.")
+                _schema_error(f"{field_path}: options must be a list.")
 
         if field_type == "repeater":
             nested_fields = field.get("fields")
             if not isinstance(nested_fields, list):
-                _schema_error(f"{field_path}: repeater должен содержать список fields.")
+                _schema_error(f"{field_path}: repeater must contain fields list.")
             _validate_fields_schema(nested_fields, f"{field_path}.fields")
 
 
 def _validate_schema(schema):
     if not isinstance(schema, dict):
-        _schema_error("schema должна быть объектом JSON.")
+        _schema_error("schema must be a JSON object.")
     _validate_fields_schema(_get_schema_fields(schema), "fields")
 
 
@@ -163,22 +161,22 @@ def _validate_value_by_type(value, field_schema, path):
     field_type = field_schema.get("type")
     if field_type in {"text", "textarea", "image", "video", "select"}:
         if not isinstance(value, str):
-            _content_error(f"{path}: ожидается строка.")
+            _content_error(f"{path}: expected a string.")
         return
 
     if field_type == "boolean":
         if not isinstance(value, bool):
-            _content_error(f"{path}: ожидается boolean.")
+            _content_error(f"{path}: expected a boolean.")
         return
 
     if field_type == "number":
         if isinstance(value, bool) or not isinstance(value, (int, float)):
-            _content_error(f"{path}: ожидается number.")
+            _content_error(f"{path}: expected a number.")
         return
 
     if field_type == "repeater":
         if not isinstance(value, list):
-            _content_error(f"{path}: для repeater ожидается список.")
+            _content_error(f"{path}: expected a list for repeater.")
 
         nested_fields = field_schema.get("fields", [])
         nested_map = {field.get("key"): field for field in nested_fields if isinstance(field, dict)}
@@ -186,12 +184,12 @@ def _validate_value_by_type(value, field_schema, path):
         for row_index, row in enumerate(value):
             row_path = f"{path}[{row_index}]"
             if not isinstance(row, dict):
-                _content_error(f"{row_path}: элемент repeater должен быть объектом.")
+                _content_error(f"{row_path}: repeater row must be an object.")
 
             unknown_keys = set(row.keys()) - set(nested_map.keys())
             if unknown_keys:
                 key_list = ", ".join(sorted(unknown_keys))
-                _content_error(f"{row_path}: неизвестные ключи: {key_list}.")
+                _content_error(f"{row_path}: unknown keys: {key_list}.")
 
             for nested_key, nested_value in row.items():
                 nested_schema = nested_map[nested_key]
@@ -204,7 +202,7 @@ def _validate_value_by_type(value, field_schema, path):
 
 def _validate_content(content, schema):
     if not isinstance(content, dict):
-        _content_error("content должен быть объектом JSON.")
+        _content_error("content must be a JSON object.")
 
     fields = _get_schema_fields(schema)
     fields_map = {field.get("key"): field for field in fields if isinstance(field, dict)}
@@ -212,7 +210,7 @@ def _validate_content(content, schema):
     unknown_keys = set(content.keys()) - set(fields_map.keys())
     if unknown_keys:
         key_list = ", ".join(sorted(unknown_keys))
-        _content_error(f"Обнаружены ключи, отсутствующие в schema: {key_list}.")
+        _content_error(f"unknown keys not present in schema: {key_list}.")
 
     for key, value in content.items():
         _validate_value_by_type(value=value, field_schema=fields_map[key], path=f"content.{key}")
@@ -220,31 +218,57 @@ def _validate_content(content, schema):
 
 def _validate_settings(settings):
     if not isinstance(settings, dict):
-        _settings_error("settings должен быть JSON-объектом.")
+        _settings_error("settings must be a JSON object.")
 
 
 class Site(models.Model):
-    name = models.CharField(max_length=255, verbose_name="\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0441\u0430\u0439\u0442\u0430")
-    slug = models.SlugField(max_length=255, unique=True, verbose_name="Slug \u0441\u0430\u0439\u0442\u0430")
-    domain = models.CharField(max_length=255, blank=True, verbose_name="\u0414\u043e\u043c\u0435\u043d")
-    seo = models.JSONField(default=dict, blank=True, verbose_name="SEO настройки")
+    name = models.CharField(max_length=255, verbose_name="Site name")
+    slug = models.SlugField(max_length=255, unique=True, verbose_name="Site slug")
+    domain = models.CharField(max_length=255, blank=True, verbose_name="Domain")
+    seo = models.JSONField(default=dict, blank=True, verbose_name="SEO settings")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="sites",
-        verbose_name="\u0412\u043b\u0430\u0434\u0435\u043b\u0435\u0446",
+        verbose_name="Owner",
     )
-    is_active = models.BooleanField(default=True, verbose_name="\u0410\u043a\u0442\u0438\u0432\u0435\u043d")
+    is_active = models.BooleanField(default=True, verbose_name="Is active")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "\u0421\u0430\u0439\u0442"
-        verbose_name_plural = "\u0421\u0430\u0439\u0442\u044b"
+        verbose_name = "Site"
+        verbose_name_plural = "Sites"
         ordering = ["name"]
 
     def __str__(self):
         return self.name
+
+
+class SectionSchema(models.Model):
+    section_key = models.SlugField(max_length=100, unique=True, verbose_name="Section key")
+    title = models.CharField(max_length=255, verbose_name="Schema title")
+    schema = models.JSONField(default=dict, blank=True, verbose_name="Schema")
+    description = models.TextField(blank=True, verbose_name="Description")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Section schema"
+        verbose_name_plural = "Section schemas"
+        ordering = ["section_key"]
+
+    def clean(self):
+        SiteSection.validate_schema(self.schema)
+
+    def save(self, *args, **kwargs):
+        if not self.section_key and self.title:
+            self.section_key = slugify(self.title)
+        SiteSection.validate_schema(self.schema)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.section_key} ({self.title})"
 
 
 class SiteSection(models.Model):
@@ -252,47 +276,64 @@ class SiteSection(models.Model):
         Site,
         on_delete=models.CASCADE,
         related_name="sections",
-        verbose_name="\u0421\u0430\u0439\u0442",
+        verbose_name="Site",
     )
-    name = models.CharField(max_length=255, verbose_name="\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0440\u0430\u0437\u0434\u0435\u043b\u0430")
-    slug = models.SlugField(max_length=255, verbose_name="Slug \u0440\u0430\u0437\u0434\u0435\u043b\u0430")
-    section_type = models.CharField(
-        max_length=100,
-        choices=SECTION_TYPES,
-        verbose_name="\u0422\u0438\u043f \u0441\u0435\u043a\u0446\u0438\u0438",
-    )
-    order = models.PositiveIntegerField(default=0, verbose_name="\u041f\u043e\u0440\u044f\u0434\u043e\u043a")
-    is_active = models.BooleanField(default=True, verbose_name="\u0410\u043a\u0442\u0438\u0432\u043d\u0430")
-    schema = models.JSONField(default=dict, blank=True, verbose_name="\u0421\u0445\u0435\u043c\u0430 \u043f\u043e\u043b\u0435\u0439")
-    content = models.JSONField(default=dict, blank=True, verbose_name="\u041a\u043e\u043d\u0442\u0435\u043d\u0442")
-    component_key = models.CharField(max_length=100, blank=True, verbose_name="\u041a\u043b\u044e\u0447 \u043a\u043e\u043c\u043f\u043e\u043d\u0435\u043d\u0442\u0430")
-    settings = models.JSONField(default=dict, blank=True, verbose_name="\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0441\u0435\u043a\u0446\u0438\u0438")
+    title = models.CharField(max_length=255, verbose_name="Section title")
+    key = models.SlugField(max_length=100, verbose_name="Section key")
+    section_type = models.CharField(max_length=100, blank=True, default="", verbose_name="Section type")
+    order = models.PositiveIntegerField(default=0, verbose_name="Sort order")
+    is_active = models.BooleanField(default=True, verbose_name="Is active")
+    schema = models.JSONField(default=dict, blank=True, verbose_name="Field schema")
+    content = models.JSONField(default=dict, blank=True, verbose_name="Content")
+    component_key = models.CharField(max_length=100, blank=True, verbose_name="Component key")
+    settings = models.JSONField(default=dict, blank=True, verbose_name="Section settings")
     seo = models.JSONField(default=dict, blank=True, verbose_name="SEO settings")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "\u0420\u0430\u0437\u0434\u0435\u043b \u0441\u0430\u0439\u0442\u0430"
-        verbose_name_plural = "\u0420\u0430\u0437\u0434\u0435\u043b\u044b \u0441\u0430\u0439\u0442\u0430"
-        ordering = ["site", "order", "name"]
-        unique_together = ("site", "slug")
+        verbose_name = "Site section"
+        verbose_name_plural = "Site sections"
+        ordering = ["site", "order", "title"]
+        constraints = [
+            models.UniqueConstraint(fields=("site", "key"), name="unique_site_section_key"),
+        ]
+
+    @property
+    def slug(self):
+        return self.key
+
+    @slug.setter
+    def slug(self, value):
+        self.key = value
+
+    @property
+    def name(self):
+        return self.title
+
+    @name.setter
+    def name(self, value):
+        self.title = value
+
+    def _section_identity(self):
+        return self.section_type or self.key
 
     def _apply_schema_preset_if_needed(self):
         if self.schema:
             return
-        schema_template = AUTO_SCHEMA_BY_SECTION_TYPE.get(self.section_type)
+        schema_template = AUTO_SCHEMA_BY_SECTION_TYPE.get(self._section_identity())
         if schema_template:
             self.schema = deepcopy(schema_template)
 
     def _apply_component_key_if_needed(self):
         if self.component_key:
             return
-        self.component_key = AUTO_COMPONENT_KEY_BY_SECTION_TYPE.get(self.section_type, "")
+        self.component_key = AUTO_COMPONENT_KEY_BY_SECTION_TYPE.get(self._section_identity(), "")
 
     def _apply_settings_preset_if_needed(self):
         if self.settings:
             return
-        settings_template = AUTO_SETTINGS_BY_SECTION_TYPE.get(self.section_type)
+        settings_template = AUTO_SETTINGS_BY_SECTION_TYPE.get(self._section_identity())
         if settings_template:
             self.settings = deepcopy(settings_template)
 
@@ -315,20 +356,27 @@ class SiteSection(models.Model):
         return _build_defaults_from_fields(self.get_schema_fields())
 
     def get_default_settings(self):
-        return deepcopy(AUTO_SETTINGS_BY_SECTION_TYPE.get(self.section_type, {}))
+        return deepcopy(AUTO_SETTINGS_BY_SECTION_TYPE.get(self._section_identity(), {}))
 
     def clean(self):
-        effective_schema = self.schema or AUTO_SCHEMA_BY_SECTION_TYPE.get(self.section_type, {"fields": []})
-        effective_settings = self.settings or AUTO_SETTINGS_BY_SECTION_TYPE.get(self.section_type, {})
+        effective_schema = self.schema or AUTO_SCHEMA_BY_SECTION_TYPE.get(self._section_identity(), {"fields": []})
+        effective_settings = self.settings or AUTO_SETTINGS_BY_SECTION_TYPE.get(self._section_identity(), {})
         self.validate_schema(effective_schema)
         self.validate_settings(effective_settings)
         if self.content:
             self.validate_content(content=self.content, schema=effective_schema)
 
     def save(self, *args, **kwargs):
+        if self.key:
+            self.key = slugify(self.key)
+
+        if not self.section_type:
+            self.section_type = self.key
+
         self._apply_schema_preset_if_needed()
         self._apply_component_key_if_needed()
         self._apply_settings_preset_if_needed()
+
         self.validate_schema(self.schema)
         self.validate_settings(self.settings)
 
@@ -339,4 +387,4 @@ class SiteSection(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"{self.site.name} \u2014 {self.name}"
+        return f"{self.site.name} - {self.title}"

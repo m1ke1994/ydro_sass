@@ -1,25 +1,34 @@
-<script setup>
+﻿<script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { useSectionsStore } from '../stores/sections'
 import { useSiteStore } from '../stores/site'
 
 const emit = defineEmits(['toggle-sidebar'])
 const router = useRouter()
 const authStore = useAuthStore()
 const siteStore = useSiteStore()
+const sectionsStore = useSectionsStore()
 
-const siteTitle = computed(() => siteStore.site?.name || 'Ваш сайт')
+const siteTitle = computed(() => siteStore.currentSite?.name || 'Сайт не выбран')
 
 function openPublicSite() {
-  const domain = siteStore.site?.domain
+  const domain = siteStore.currentSite?.domain
   if (!domain) return
-  window.open(`https://${domain}`, '_blank')
+
+  const normalized = domain.startsWith('http://') || domain.startsWith('https://')
+    ? domain
+    : `http://${domain}`
+
+  window.open(normalized, '_blank')
 }
 
 function logout() {
   authStore.logout()
+  siteStore.reset()
+  sectionsStore.reset()
   router.push('/login')
 }
 </script>
@@ -49,10 +58,6 @@ function logout() {
         >
           Просмотреть сайт
         </button>
-
-        <div class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
-          🔔
-        </div>
 
         <div class="hidden items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 sm:flex">
           <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand-600 text-xs font-semibold text-white">

@@ -1,267 +1,297 @@
-from copy import deepcopy
+﻿from copy import deepcopy
 
 from django.contrib.auth import get_user_model
-from django.core.exceptions import ValidationError
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from apps.accounts.models import ClientProfile
-from apps.sites.models import Site, SiteSection
+from apps.sites.models import SectionSchema, Site, SiteSection
 
-USER_USERNAME = "meditation"
-USER_EMAIL = "meditation@example.com"
+USER_EMAIL = "test@test.ru"
 USER_PASSWORD = "test-test"
+USER_USERNAME = "test@test.ru"
 
-SITE_NAME = "Meditation"
-SITE_SLUG = "meditation"
-SITE_DOMAIN = "meditation.ru"
-
-SITE_SEO_DEFAULTS = {
-    "title": "Meditation — практики и медитации",
-    "description": "Премиальный сайт практик, медитаций и личных сессий.",
-    "keywords": "медитация, практики, mindfulness, лила",
-    "og_title": "Meditation",
-    "og_description": "Практики, медитации и пространство внутреннего внимания.",
-    "og_image": "",
-    "favicon": "",
-    "canonical": "",
-    "robots_index": True,
+SITE_DATA = {
+    "name": "Сайт медитации",
+    "slug": "meditation",
+    "domain": "localhost:5173",
+    "is_active": True,
 }
 
 SECTION_SEEDS = [
     {
-        "name": "Hero",
-        "slug": "hero",
-        "section_type": "hero",
-        "component_key": "hero-video",
+        "key": "hero",
+        "title": "Hero",
         "order": 1,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
-                {"key": "subtitle", "label": "Подзаголовок", "type": "textarea"},
-                {"key": "button_text", "label": "Текст кнопки", "type": "text"},
-                {"key": "background_video", "label": "Фоновое видео", "type": "video"},
-                {"key": "background_image", "label": "Фоновое изображение", "type": "image"},
+                {"key": "title", "label": "Title", "type": "text"},
+                {"key": "subtitle", "label": "Subtitle", "type": "text"},
+                {"key": "description", "label": "Description", "type": "textarea"},
+                {"key": "buttonText", "label": "Button text", "type": "text"},
+                {"key": "buttonLink", "label": "Button link", "type": "text"},
+                {"key": "backgroundVideo", "label": "Background video", "type": "video"},
+                {"key": "backgroundImage", "label": "Background image", "type": "image"},
             ]
         },
         "content": {
-            "title": "Пространство внимания и медитации",
-            "subtitle": "Мягкие практики, личные сессии и путь к внутренней ясности.",
-            "button_text": "Записаться",
-            "background_video": "",
-            "background_image": "",
-        },
-        "settings": {
-            "theme": "dark",
-            "spacing": "large",
-            "animation": "fade-up",
-            "background": "video",
-            "container": "xl",
-            "visible": True,
-            "custom_classes": "",
+            "title": "Лила Москва",
+            "subtitle": "Игра, медитация и практика осознанности",
+            "description": "Мягкая практика для возвращения ясности, ресурса и контакта с собой.",
+            "buttonText": "Записаться",
+            "buttonLink": "#contacts",
+            "backgroundVideo": "/images/Lila_Olga_2.2_compressed.mp4",
+            "backgroundImage": "/images/Lila_Olga_2.2.poster.jpg",
         },
     },
     {
-        "name": "О проекте",
-        "slug": "about",
-        "section_type": "about",
-        "component_key": "about-simple",
+        "key": "about",
+        "title": "About",
         "order": 2,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
-                {"key": "text", "label": "Текст", "type": "textarea"},
-            ]
-        },
-        "content": {
-            "title": "О проекте",
-            "text": "Это пространство для бережной работы с собой, телом и вниманием.",
-        },
-        "settings": {
-            "theme": "light",
-            "spacing": "medium",
-            "animation": "fade-up",
-            "background": "none",
-            "container": "lg",
-            "visible": True,
-            "custom_classes": "",
-        },
-    },
-    {
-        "name": "Услуги",
-        "slug": "services",
-        "section_type": "services",
-        "component_key": "services-grid",
-        "order": 3,
-        "schema": {
-            "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
+                {"key": "title", "label": "Title", "type": "text"},
+                {"key": "text", "label": "Text", "type": "textarea"},
+                {"key": "image", "label": "Image", "type": "image"},
                 {
                     "key": "items",
-                    "label": "Список услуг",
+                    "label": "Items",
                     "type": "repeater",
                     "fields": [
-                        {"key": "title", "label": "Название", "type": "text"},
-                        {"key": "description", "label": "Описание", "type": "textarea"},
-                        {"key": "price", "label": "Цена", "type": "text"},
+                        {"key": "title", "label": "Title", "type": "text"},
+                        {"key": "text", "label": "Text", "type": "textarea"},
                     ],
                 },
             ]
         },
         "content": {
-            "title": "Услуги",
+            "title": "О проекте",
+            "text": "Пространство для внимательной и бережной работы с внутренним состоянием.",
+            "image": "/images/2025-02-26 12-35-42.JPG",
             "items": [
-                {
-                    "title": "Личная сессия",
-                    "description": "Индивидуальная практика под ваш запрос.",
-                    "price": "от 5000 ₽",
-                },
-                {
-                    "title": "Медитация",
-                    "description": "Мягкая практика для восстановления внимания.",
-                    "price": "от 3000 ₽",
-                },
+                {"title": "Без спешки", "text": "Практика проходит в комфортном ритме."},
+                {"title": "С проводником", "text": "Поддержка и ясные шаги на каждом этапе."},
             ],
-        },
-        "settings": {
-            "theme": "light",
-            "spacing": "medium",
-            "animation": "fade-up",
-            "background": "none",
-            "container": "xl",
-            "visible": True,
-            "custom_classes": "",
         },
     },
     {
-        "name": "Галерея",
-        "slug": "gallery",
-        "section_type": "gallery",
-        "component_key": "gallery-grid",
+        "key": "services",
+        "title": "Services",
+        "order": 3,
+        "schema": {
+            "fields": [
+                {"key": "title", "label": "Title", "type": "text"},
+                {"key": "description", "label": "Description", "type": "textarea"},
+                {
+                    "key": "items",
+                    "label": "Items",
+                    "type": "repeater",
+                    "fields": [
+                        {"key": "title", "label": "Title", "type": "text"},
+                        {"key": "description", "label": "Description", "type": "textarea"},
+                        {"key": "image", "label": "Image", "type": "image"},
+                        {"key": "type", "label": "Type", "type": "text"},
+                    ],
+                },
+            ]
+        },
+        "content": {
+            "title": "Медитации",
+            "description": "Форматы практики для восстановления и внутреннего баланса.",
+            "items": [
+                {
+                    "title": "Глубокое расслабление",
+                    "description": "Снятие напряжения и возвращение в спокойное состояние.",
+                    "image": "/images/m1.jpg",
+                    "type": "image",
+                },
+                {
+                    "title": "Восстановление ресурса",
+                    "description": "Практика дыхания и тишины для внутренней опоры.",
+                    "image": "/images/m3.jpg",
+                    "type": "image",
+                },
+            ],
+        },
+    },
+    {
+        "key": "prices",
+        "title": "Prices",
         "order": 4,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
+                {"key": "title", "label": "Title", "type": "text"},
                 {
                     "key": "items",
-                    "label": "Изображения",
+                    "label": "Items",
                     "type": "repeater",
                     "fields": [
-                        {"key": "image", "label": "Изображение", "type": "image"},
-                        {"key": "caption", "label": "Подпись", "type": "text"},
+                        {"key": "title", "label": "Title", "type": "text"},
+                        {"key": "price", "label": "Price", "type": "text"},
+                        {"key": "duration", "label": "Duration", "type": "text"},
+                        {"key": "description", "label": "Description", "type": "textarea"},
+                    ],
+                },
+            ]
+        },
+        "content": {
+            "title": "Форматы услуг",
+            "items": [
+                {
+                    "title": "Индивидуальная игра Лила",
+                    "price": "18 000 ₽",
+                    "duration": "4 часа",
+                    "description": "Личная встреча с глубоким разбором запроса.",
+                },
+                {
+                    "title": "Групповая медитация",
+                    "price": "по запросу",
+                    "duration": "1 час",
+                    "description": "Спокойная практика в группе в удобном темпе.",
+                },
+            ],
+        },
+    },
+    {
+        "key": "gallery",
+        "title": "Gallery",
+        "order": 5,
+        "schema": {
+            "fields": [
+                {"key": "title", "label": "Title", "type": "text"},
+                {
+                    "key": "items",
+                    "label": "Items",
+                    "type": "repeater",
+                    "fields": [
+                        {"key": "src", "label": "Source", "type": "image"},
+                        {"key": "alt", "label": "Alt", "type": "text"},
+                        {"key": "title", "label": "Title", "type": "text"},
                     ],
                 },
             ]
         },
         "content": {
             "title": "Галерея",
-            "items": [],
-        },
-        "settings": {
-            "theme": "light",
-            "spacing": "medium",
-            "animation": "fade-up",
-            "background": "none",
-            "container": "xl",
-            "visible": True,
-            "custom_classes": "",
+            "items": [
+                {"src": "/images/DSC08101.JPG", "alt": "Практика", "title": "Пространство встречи"},
+                {"src": "/images/IMG_5131.JPG", "alt": "Детали", "title": "Детали пространства"},
+            ],
         },
     },
     {
-        "name": "Отзывы",
-        "slug": "reviews",
-        "section_type": "reviews",
-        "component_key": "reviews-slider",
-        "order": 5,
+        "key": "reviews",
+        "title": "Reviews",
+        "order": 6,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
+                {"key": "title", "label": "Title", "type": "text"},
                 {
                     "key": "items",
-                    "label": "Отзывы",
+                    "label": "Items",
                     "type": "repeater",
                     "fields": [
-                        {"key": "author", "label": "Автор", "type": "text"},
-                        {"key": "text", "label": "Текст", "type": "textarea"},
-                        {"key": "rating", "label": "Оценка", "type": "number"},
+                        {"key": "name", "label": "Name", "type": "text"},
+                        {"key": "date", "label": "Date", "type": "text"},
+                        {"key": "avatar", "label": "Avatar", "type": "image"},
+                        {"key": "text", "label": "Text", "type": "textarea"},
                     ],
                 },
             ]
         },
         "content": {
-            "title": "Отзывы",
-            "items": [],
-        },
-        "settings": {
-            "theme": "light",
-            "spacing": "medium",
-            "animation": "fade-up",
-            "background": "none",
-            "container": "lg",
-            "visible": True,
-            "custom_classes": "",
+            "title": "Отзывы участников",
+            "items": [
+                {
+                    "name": "Участница игры",
+                    "date": "Отзыв из Telegram",
+                    "avatar": "/images/IMG_1245.JPG",
+                    "text": "Очень бережный формат, после игры появилось больше ясности и спокойствия.",
+                },
+                {
+                    "name": "Участница игры",
+                    "date": "Отзыв из Telegram",
+                    "avatar": "/images/IMG_1246.JPG",
+                    "text": "Комфортная атмосфера, глубокий процесс и практические инсайты.",
+                },
+            ],
         },
     },
     {
-        "name": "Контакты",
-        "slug": "contacts",
-        "section_type": "contacts",
-        "component_key": "contacts-simple",
-        "order": 6,
+        "key": "contacts",
+        "title": "Contacts",
+        "order": 7,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text"},
-                {"key": "phone", "label": "Телефон", "type": "text"},
+                {"key": "title", "label": "Title", "type": "text"},
+                {"key": "phone", "label": "Phone", "type": "text"},
                 {"key": "email", "label": "Email", "type": "text"},
                 {"key": "telegram", "label": "Telegram", "type": "text"},
-                {"key": "address", "label": "Адрес", "type": "textarea"},
+                {"key": "address", "label": "Address", "type": "textarea"},
             ]
         },
         "content": {
-            "title": "Контакты",
-            "phone": "",
-            "email": "",
-            "telegram": "",
-            "address": "",
+            "title": "Контакты и запись",
+            "phone": "+7 903 198-91-88",
+            "email": "test@test.ru",
+            "telegram": "@leelabirdcase",
+            "address": "Москва, ул. Ботаническая, 33В стр 1",
         },
-        "settings": {
-            "theme": "light",
-            "spacing": "medium",
-            "animation": "fade-up",
-            "background": "none",
-            "container": "md",
-            "visible": True,
-            "custom_classes": "",
+    },
+    {
+        "key": "footer",
+        "title": "Footer",
+        "order": 8,
+        "schema": {
+            "fields": [
+                {"key": "text", "label": "Text", "type": "textarea"},
+                {
+                    "key": "links",
+                    "label": "Links",
+                    "type": "repeater",
+                    "fields": [
+                        {"key": "label", "label": "Label", "type": "text"},
+                        {"key": "href", "label": "Href", "type": "text"},
+                        {"key": "target", "label": "Target", "type": "text"},
+                    ],
+                },
+            ]
+        },
+        "content": {
+            "text": "Игра Лила в Москве - путь к ясности через честный диалог с собой.",
+            "links": [
+                {"label": "Telegram", "href": "https://t.me/leelabirdcase", "target": "_blank"},
+                {"label": "Записаться", "href": "#contacts", "target": "_self"},
+            ],
         },
     },
 ]
 
 
 class Command(BaseCommand):
-    help = "Создает/обновляет тестовый сайт Meditation с базовыми секциями."
+    help = "Create or update demo meditation site with sections and test user."
 
     def handle(self, *args, **options):
         with transaction.atomic():
             user = self._upsert_user()
-            self._upsert_client_profile(user)
             site = self._upsert_site(user)
-            created_sections, updated_sections = self._upsert_sections(site)
+            created_count, updated_count = self._upsert_sections(site)
 
-        self.stdout.write(self.style.SUCCESS("Seed meditation site завершен."))
-        self.stdout.write(f"Пользователь: {user.username}")
-        self.stdout.write(f"Сайт: {site.name} ({site.slug})")
-        self.stdout.write(f"Секций создано: {created_sections}, обновлено: {updated_sections}")
+        self.stdout.write(self.style.SUCCESS("Seed completed."))
+        self.stdout.write(f"User: {USER_EMAIL}")
+        self.stdout.write("Password: test-test")
+        self.stdout.write(f"Site: {site.slug} ({site.domain})")
+        self.stdout.write(f"Sections created: {created_count}, updated: {updated_count}")
 
     def _upsert_user(self):
         user_model = get_user_model()
         user, created = user_model.objects.get_or_create(
-            username=USER_USERNAME,
-            defaults={"email": USER_EMAIL},
+            email=USER_EMAIL,
+            defaults={"username": USER_USERNAME},
         )
 
         changed = False
-        if user.email != USER_EMAIL:
-            user.email = USER_EMAIL
+        if user.username != USER_USERNAME:
+            user.username = USER_USERNAME
             changed = True
 
         if not user.check_password(USER_PASSWORD):
@@ -273,57 +303,26 @@ class Command(BaseCommand):
 
         return user
 
-    def _upsert_client_profile(self, user):
-        profile, created = ClientProfile.objects.get_or_create(
-            user=user,
-            defaults={"display_name": "Клиент Meditation", "phone": ""},
-        )
-
-        changed = False
-        if profile.display_name != "Клиент Meditation":
-            profile.display_name = "Клиент Meditation"
-            changed = True
-
-        if profile.phone is None:
-            profile.phone = ""
-            changed = True
-
-        if created or changed:
-            profile.save()
-
-        return profile
-
     def _upsert_site(self, user):
         site, created = Site.objects.get_or_create(
-            slug=SITE_SLUG,
+            slug=SITE_DATA["slug"],
             defaults={
-                "name": SITE_NAME,
-                "domain": SITE_DOMAIN,
+                "name": SITE_DATA["name"],
+                "domain": SITE_DATA["domain"],
                 "owner": user,
-                "is_active": True,
-                "seo": deepcopy(SITE_SEO_DEFAULTS),
+                "is_active": SITE_DATA["is_active"],
             },
         )
 
         changed = False
-        if site.name != SITE_NAME:
-            site.name = SITE_NAME
-            changed = True
-        if site.domain != SITE_DOMAIN:
-            site.domain = SITE_DOMAIN
-            changed = True
+        for field in ("name", "domain", "is_active"):
+            value = SITE_DATA[field]
+            if getattr(site, field) != value:
+                setattr(site, field, value)
+                changed = True
+
         if site.owner_id != user.id:
             site.owner = user
-            changed = True
-        if not site.is_active:
-            site.is_active = True
-            changed = True
-
-        current_seo = site.seo if isinstance(site.seo, dict) else {}
-        merged_seo = deepcopy(SITE_SEO_DEFAULTS)
-        merged_seo.update(current_seo)
-        if site.seo != merged_seo:
-            site.seo = merged_seo
             changed = True
 
         if created or changed:
@@ -335,19 +334,26 @@ class Command(BaseCommand):
         created_count = 0
         updated_count = 0
 
-        for section_seed in SECTION_SEEDS:
+        for seed in SECTION_SEEDS:
+            SectionSchema.objects.update_or_create(
+                section_key=seed["key"],
+                defaults={
+                    "title": seed["title"],
+                    "schema": deepcopy(seed["schema"]),
+                    "description": f"Auto schema for section '{seed['key']}'",
+                },
+            )
+
             section, created = SiteSection.objects.get_or_create(
                 site=site,
-                slug=section_seed["slug"],
+                key=seed["key"],
                 defaults={
-                    "name": section_seed["name"],
-                    "section_type": section_seed["section_type"],
-                    "component_key": section_seed["component_key"],
-                    "order": section_seed["order"],
+                    "title": seed["title"],
+                    "section_type": seed["key"],
+                    "order": seed["order"],
                     "is_active": True,
-                    "schema": deepcopy(section_seed["schema"]),
-                    "content": deepcopy(section_seed["content"]),
-                    "settings": deepcopy(section_seed["settings"]),
+                    "schema": deepcopy(seed["schema"]),
+                    "content": deepcopy(seed["content"]),
                 },
             )
 
@@ -356,42 +362,24 @@ class Command(BaseCommand):
                 continue
 
             changed = False
-            if section.name != section_seed["name"]:
-                section.name = section_seed["name"]
+            if section.title != seed["title"]:
+                section.title = seed["title"]
                 changed = True
-            if section.section_type != section_seed["section_type"]:
-                section.section_type = section_seed["section_type"]
+            if section.section_type != seed["key"]:
+                section.section_type = seed["key"]
                 changed = True
-            if section.order != section_seed["order"]:
-                section.order = section_seed["order"]
+            if section.order != seed["order"]:
+                section.order = seed["order"]
                 changed = True
             if not section.is_active:
                 section.is_active = True
                 changed = True
-            if not section.component_key:
-                section.component_key = section_seed["component_key"]
+            if section.schema != seed["schema"]:
+                section.schema = deepcopy(seed["schema"])
                 changed = True
-            if not section.schema:
-                section.schema = deepcopy(section_seed["schema"])
+            if section.content != seed["content"]:
+                section.content = deepcopy(seed["content"])
                 changed = True
-            if not section.settings:
-                section.settings = deepcopy(section_seed["settings"])
-                changed = True
-
-            if not section.content:
-                candidate_content = deepcopy(section_seed["content"])
-                try:
-                    SiteSection.validate_schema(section.schema)
-                    SiteSection.validate_content(content=candidate_content, schema=section.schema)
-                except ValidationError as exc:
-                    self.stdout.write(
-                        self.style.WARNING(
-                            f"Секция '{section.slug}' пропущена по content: {exc}"
-                        )
-                    )
-                else:
-                    section.content = candidate_content
-                    changed = True
 
             if changed:
                 section.save()

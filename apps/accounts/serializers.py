@@ -1,4 +1,6 @@
+﻿from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import ClientProfile
 
@@ -28,3 +30,23 @@ class UserMeSerializer(serializers.Serializer):
 
     def get_sites_count(self, obj):
         return obj.sites.count()
+
+
+class EmailOrUsernameTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token["email"] = user.email
+        return token
+
+    def validate(self, attrs):
+        username_field = self.username_field
+        candidate = attrs.get(username_field)
+
+        if candidate and "@" in candidate:
+            user_model = get_user_model()
+            user = user_model.objects.filter(email__iexact=candidate).order_by("id").first()
+            if user is not None:
+                attrs[username_field] = getattr(user, username_field)
+
+        return super().validate(attrs)

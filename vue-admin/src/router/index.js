@@ -1,4 +1,4 @@
-import { createRouter, createWebHistory } from 'vue-router'
+﻿import { createRouter, createWebHistory } from 'vue-router'
 
 import AdminLayout from '../layouts/AdminLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
@@ -20,8 +20,13 @@ const routes = [
     children: [
       { path: '', redirect: { name: 'dashboard' } },
       { path: 'dashboard', name: 'dashboard', component: DashboardView },
-      { path: 'sections', name: 'sections', component: SectionsView },
-      { path: 'sections/:slug', name: 'section-edit', component: SectionEditView, props: true },
+      { path: 'sites/:siteId/sections', name: 'sections', component: SectionsView, props: true },
+      {
+        path: 'sites/:siteId/sections/:sectionId',
+        name: 'section-edit',
+        component: SectionEditView,
+        props: true,
+      },
     ],
   },
   {

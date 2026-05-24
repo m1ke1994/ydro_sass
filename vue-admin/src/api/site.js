@@ -1,3 +1,4 @@
-import http from './http'
+﻿import http from './http'
 
-export const getClientSiteRequest = () => http.get('/api/client/site/')
+export const getMySitesRequest = () => http.get('/api/admin/my-sites/')
+export const getMySiteRequest = (siteId) => http.get(`/api/admin/my-sites/${siteId}/`)

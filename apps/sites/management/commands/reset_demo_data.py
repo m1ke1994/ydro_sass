@@ -6,7 +6,7 @@ from apps.accounts.models import ClientProfile
 from apps.mediafiles.models import MediaFile
 from apps.sites.models import Site
 
-DEMO_USERNAME = "meditation_owner"
+DEMO_USERNAME = "test@test.ru"
 DEMO_SITE_SLUG = "meditation"
 
 
@@ -41,3 +41,4 @@ class Command(BaseCommand):
         self.stdout.write(f"sites_deleted={sites_count}")
         self.stdout.write(f"profiles_deleted={profile_count}")
         self.stdout.write(f"users_deleted={user_count}")
+

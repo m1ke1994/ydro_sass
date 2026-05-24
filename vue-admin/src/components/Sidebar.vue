@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -17,23 +17,30 @@ const route = useRoute()
 const authStore = useAuthStore()
 const siteStore = useSiteStore()
 
-const navItems = [
-  { label: 'Главная', to: '/dashboard', icon: '⌂' },
-  { label: 'Разделы', to: '/sections', icon: '▦' },
-  { label: 'Медиафайлы', disabled: true, icon: '◫' },
-  { label: 'SEO и аналитика', disabled: true, icon: '◎' },
-  { label: 'Дизайн и настройки', disabled: true, icon: '✦' },
-  { label: 'Пользователи', disabled: true, icon: '◉' },
-  { label: 'Подписка', disabled: true, icon: '◆' },
-  { label: 'Уведомления', disabled: true, icon: '◌' },
-]
+const navItems = computed(() => {
+  const items = [
+    { label: 'Мои сайты', to: '/dashboard', icon: '⌂' },
+  ]
+
+  if (siteStore.currentSiteId) {
+    items.push({
+      label: 'Разделы',
+      to: `/sites/${siteStore.currentSiteId}/sections`,
+      icon: '▦',
+    })
+  } else {
+    items.push({ label: 'Разделы', disabled: true, icon: '▦' })
+  }
+
+  return items
+})
 
 const userLabel = computed(() => {
   if (!authStore.user) return 'Пользователь'
   return authStore.user.first_name || authStore.user.username || 'Пользователь'
 })
 
-const siteLabel = computed(() => siteStore.site?.domain || siteStore.site?.name || 'Ваш сайт')
+const siteLabel = computed(() => siteStore.currentSite?.domain || siteStore.currentSite?.name || 'Сайт не выбран')
 
 function isActive(item) {
   return item.to && route.path.startsWith(item.to)
@@ -53,7 +60,7 @@ function isActive(item) {
       :class="open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
     >
       <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.2em] text-brand-200/90">MindFlow</p>
+        <p class="text-xs uppercase tracking-[0.2em] text-brand-200/90">Yadro</p>
         <p class="mt-2 text-lg font-semibold text-white">Панель управления</p>
       </div>
 

@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+﻿import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
 import { loginRequest, meRequest } from '../api/auth'
@@ -27,8 +27,8 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function login({ username, password }) {
-    const { data } = await loginRequest({ username, password })
+  async function login({ email, password }) {
+    const { data } = await loginRequest({ username: email, password })
     setTokens({ access: data.access, refresh: data.refresh })
     await getCurrentUser()
     return data

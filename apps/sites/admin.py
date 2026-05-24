@@ -1,16 +1,16 @@
-from django.contrib import admin
+﻿from django.contrib import admin
 from django.db.models import Count
 from django.utils.html import format_html, format_html_join
 
-from .models import Site, SiteSection
+from .models import SectionSchema, Site, SiteSection
 
 
 class SiteSectionInline(admin.TabularInline):
     model = SiteSection
     extra = 0
     fields = (
-        "name",
-        "slug",
+        "title",
+        "key",
         "section_type",
         "component_key",
         "order",
@@ -20,7 +20,7 @@ class SiteSectionInline(admin.TabularInline):
         "settings",
         "seo",
     )
-    ordering = ("order", "name")
+    ordering = ("order", "title")
     show_change_link = True
 
 
@@ -40,15 +40,9 @@ class SiteAdmin(admin.ModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
     readonly_fields = ("created_at", "updated_at")
     fieldsets = (
-        (
-            "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",
-            {"fields": ("name", "slug", "domain", "owner", "is_active")},
-        ),
-        ("\u0421\u0430\u0439\u0442 SEO", {"fields": ("seo",)}),
-        (
-            "\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",
-            {"fields": ("created_at", "updated_at")},
-        ),
+        ("Main", {"fields": ("name", "slug", "domain", "owner", "is_active")}),
+        ("SEO", {"fields": ("seo",)}),
+        ("Meta", {"fields": ("created_at", "updated_at")}),
     )
     inlines = (SiteSectionInline,)
 
@@ -56,59 +50,68 @@ class SiteAdmin(admin.ModelAdmin):
         queryset = super().get_queryset(request)
         return queryset.annotate(sections_total=Count("sections"))
 
-    @admin.display(description="\u0420\u0430\u0437\u0434\u0435\u043b\u043e\u0432", ordering="sections_total")
+    @admin.display(description="Sections", ordering="sections_total")
     def sections_count(self, obj):
         return obj.sections_total
 
 
-@admin.register(SiteSection)
-class SiteSectionAdmin(admin.ModelAdmin):
-    list_display = ("site", "name", "slug", "section_type", "order", "is_active", "updated_at")
-    list_filter = ("site", "section_type", "is_active")
-    search_fields = ("name", "slug", "section_type", "site__name")
-    prepopulated_fields = {"slug": ("name",)}
+@admin.register(SectionSchema)
+class SectionSchemaAdmin(admin.ModelAdmin):
+    list_display = ("section_key", "title", "updated_at")
+    search_fields = ("section_key", "title", "description")
     readonly_fields = ("created_at", "updated_at", "schema_preview")
     fieldsets = (
-        ("\u041f\u0440\u0438\u0432\u044f\u0437\u043a\u0430", {"fields": ("site",)}),
-        (
-            "\u041e\u0441\u043d\u043e\u0432\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",
-            {"fields": ("name", "slug", "section_type", "order", "is_active")},
-        ),
-        ("\u0414\u0430\u043d\u043d\u044b\u0435 \u0441\u0435\u043a\u0446\u0438\u0438", {"fields": ("schema", "content")}),
-        ("\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438 \u0441\u0435\u043a\u0446\u0438\u0438", {"fields": ("component_key", "settings")}),
-        ("SEO", {"fields": ("seo",)}),
-        ("\u041f\u0440\u0435\u0434\u043f\u0440\u043e\u0441\u043c\u043e\u0442\u0440 \u0441\u0445\u0435\u043c\u044b", {"fields": ("schema_preview",)}),
-        (
-            "\u0421\u043b\u0443\u0436\u0435\u0431\u043d\u0430\u044f \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u044f",
-            {"fields": ("created_at", "updated_at")},
-        ),
+        ("Main", {"fields": ("section_key", "title", "description")}),
+        ("Schema", {"fields": ("schema", "schema_preview")}),
+        ("Meta", {"fields": ("created_at", "updated_at")}),
     )
 
-    @admin.display(description="\u041f\u043e\u043b\u044f \u0441\u0445\u0435\u043c\u044b")
+    @admin.display(description="Fields preview")
+    def schema_preview(self, obj):
+        rows = []
+        for field in obj.schema.get("fields", []):
+            if not isinstance(field, dict):
+                continue
+            rows.append((field.get("key") or "-", field.get("label") or "-", field.get("type") or "-"))
+
+        if not rows:
+            return format_html("<span style='color:#6b7280;'>Schema is empty.</span>")
+
+        return format_html(
+            "<ul style='margin:0; padding-left:18px;'>{}</ul>",
+            format_html_join("", "<li><code>{}</code> - {} <strong>({})</strong></li>", rows),
+        )
+
+
+@admin.register(SiteSection)
+class SiteSectionAdmin(admin.ModelAdmin):
+    list_display = ("site", "title", "key", "section_type", "order", "is_active", "updated_at")
+    list_filter = ("site", "section_type", "is_active")
+    search_fields = ("title", "key", "section_type", "site__name")
+    prepopulated_fields = {"key": ("title",)}
+    readonly_fields = ("created_at", "updated_at", "schema_preview")
+    fieldsets = (
+        ("Bindings", {"fields": ("site",)}),
+        ("Main", {"fields": ("title", "key", "section_type", "order", "is_active")}),
+        ("Section data", {"fields": ("schema", "content")}),
+        ("Section settings", {"fields": ("component_key", "settings")}),
+        ("SEO", {"fields": ("seo",)}),
+        ("Schema preview", {"fields": ("schema_preview",)}),
+        ("Meta", {"fields": ("created_at", "updated_at")}),
+    )
+
+    @admin.display(description="Schema fields")
     def schema_preview(self, obj):
         schema_fields = obj.get_schema_fields()
         rows = []
         for field in schema_fields:
             if isinstance(field, dict):
-                rows.append(
-                    (
-                        field.get("key") or "-",
-                        field.get("label") or "-",
-                        field.get("type") or "-",
-                    )
-                )
+                rows.append((field.get("key") or "-", field.get("label") or "-", field.get("type") or "-"))
 
         if not rows:
-            return format_html(
-                "<span style='color: #6b7280;'>{}</span>",
-                "\u0421\u0445\u0435\u043c\u0430 \u043f\u0443\u0441\u0442\u0430 \u0438\u043b\u0438 \u043d\u0435 \u0441\u043e\u0434\u0435\u0440\u0436\u0438\u0442 \u043f\u043e\u043b\u0435\u0439.",
-            )
+            return format_html("<span style='color:#6b7280;'>Schema is empty.</span>")
 
         return format_html(
-            "<ul style='margin: 0; padding-left: 18px;'>{}</ul>",
-            format_html_join(
-                "",
-                "<li><code>{}</code> - {} <strong>({})</strong></li>",
-                rows,
-            ),
+            "<ul style='margin:0; padding-left:18px;'>{}</ul>",
+            format_html_join("", "<li><code>{}</code> - {} <strong>({})</strong></li>", rows),
         )

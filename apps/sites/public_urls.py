@@ -1,12 +1,23 @@
 ﻿from django.urls import path
 
-from .views import PublicSiteDetailView, PublicSiteSectionsListView
+from .views import (
+    PublicSiteByDomainView,
+    PublicSiteDetailView,
+    PublicSiteSectionDetailView,
+    PublicSiteSectionsListView,
+)
 
 urlpatterns = [
-    path("sites/<slug:slug>/", PublicSiteDetailView.as_view(), name="public-sites-detail"),
+    path("sites/<slug:site_slug>/", PublicSiteDetailView.as_view(), name="public-site-detail"),
     path(
-        "sites/<slug:slug>/sections/",
+        "sites/<slug:site_slug>/sections/",
         PublicSiteSectionsListView.as_view(),
-        name="public-sites-sections",
+        name="public-site-sections",
     ),
+    path(
+        "sites/<slug:site_slug>/sections/<slug:section_key>/",
+        PublicSiteSectionDetailView.as_view(),
+        name="public-site-section-detail",
+    ),
+    path("by-domain/", PublicSiteByDomainView.as_view(), name="public-site-by-domain"),
 ]

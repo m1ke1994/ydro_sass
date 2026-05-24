@@ -1,5 +1,7 @@
-import http from './http'
+﻿import http from './http'
 
-export const getSectionsRequest = () => http.get('/api/client/sections/')
-export const getSectionFormRequest = (slug) => http.get(`/api/client/sections/${slug}/form/`)
-export const patchSectionRequest = (slug, payload) => http.patch(`/api/client/sections/${slug}/`, payload)
+export const getSectionsRequest = (siteId) => http.get(`/api/admin/my-sites/${siteId}/sections/`)
+export const getSectionRequest = (siteId, sectionId) => http.get(`/api/admin/my-sites/${siteId}/sections/${sectionId}/`)
+export const patchSectionRequest = (siteId, sectionId, payload) => http.patch(`/api/admin/my-sites/${siteId}/sections/${sectionId}/`, payload)
+export const createSectionRequest = (siteId, payload) => http.post(`/api/admin/my-sites/${siteId}/sections/`, payload)
+export const deleteSectionRequest = (siteId, sectionId) => http.delete(`/api/admin/my-sites/${siteId}/sections/${sectionId}/`)

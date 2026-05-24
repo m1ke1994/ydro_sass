@@ -1,5 +1,9 @@
-<script setup>
+﻿<script setup>
 defineProps({
+  siteId: {
+    type: Number,
+    required: true,
+  },
   sections: {
     type: Array,
     default: () => [],
@@ -13,6 +17,8 @@ const iconsByType = {
   reviews: '✎',
   gallery: '▣',
   contacts: '✆',
+  prices: '◈',
+  footer: '▤',
 }
 
 function typeIcon(type) {
@@ -29,12 +35,12 @@ function typeIcon(type) {
     >
       <div class="flex items-start gap-3">
         <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-          {{ typeIcon(section.section_type) }}
+          {{ typeIcon(section.section_type || section.key) }}
         </span>
 
         <div>
-          <p class="text-sm font-semibold text-slate-900">{{ section.name }}</p>
-          <p class="text-xs text-slate-500">/{{ section.slug }} · {{ section.section_type }}</p>
+          <p class="text-sm font-semibold text-slate-900">{{ section.title }}</p>
+          <p class="text-xs text-slate-500">/{{ section.key }} · {{ section.section_type || section.key }}</p>
         </div>
       </div>
 
@@ -47,7 +53,7 @@ function typeIcon(type) {
         </span>
 
         <RouterLink
-          :to="`/sections/${section.slug}`"
+          :to="`/sites/${siteId}/sections/${section.id}`"
           class="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100"
         >
           Редактировать

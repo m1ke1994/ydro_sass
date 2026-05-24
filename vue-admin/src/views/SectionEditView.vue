@@ -4,9 +4,11 @@ import { useRoute } from 'vue-router'
 
 import DynamicForm from '../components/DynamicForm.vue'
 import { useSectionsStore } from '../stores/sections'
+import { useSiteStore } from '../stores/site'
 
 const route = useRoute()
 const sectionsStore = useSectionsStore()
+const siteStore = useSiteStore()
 
 const loading = ref(false)
 const saving = ref(false)
@@ -14,16 +16,15 @@ const errorMessage = ref('')
 const successMessage = ref('')
 
 const contentModel = ref({})
-const settingsText = ref('{}')
+const contentJsonText = ref('{}')
 
-const sectionSlug = computed(() => route.params.slug)
+const siteId = computed(() => Number(route.params.siteId))
+const sectionId = computed(() => Number(route.params.sectionId))
 
-const sectionTitle = computed(() => {
-  const section = sectionsStore.currentSectionForm?.section
-  return section?.name || sectionSlug.value
-})
-
-const schema = computed(() => sectionsStore.currentSectionForm?.schema || { fields: [] })
+const currentSection = computed(() => sectionsStore.currentSection)
+const sectionTitle = computed(() => currentSection.value?.title || `Section ${sectionId.value}`)
+const schema = computed(() => currentSection.value?.schema || currentSection.value?.schema_template?.schema || { fields: [] })
+const hasSchema = computed(() => Array.isArray(schema.value?.fields) && schema.value.fields.length > 0)
 
 function clone(value) {
   return value === undefined ? {} : JSON.parse(JSON.stringify(value))
@@ -32,12 +33,19 @@ function clone(value) {
 async function load() {
   loading.value = true
   errorMessage.value = ''
+
   try {
-    const data = await sectionsStore.fetchSectionForm(sectionSlug.value)
+    siteStore.selectSite(siteId.value)
+
+    if (!siteStore.currentSite) {
+      await siteStore.fetchSite(siteId.value)
+    }
+
+    const data = await sectionsStore.fetchSection(siteId.value, sectionId.value)
     contentModel.value = clone(data?.content || {})
-    settingsText.value = JSON.stringify(data?.settings || {}, null, 2)
+    contentJsonText.value = JSON.stringify(data?.content || {}, null, 2)
   } catch (error) {
-    errorMessage.value = error?.response?.data?.detail || 'РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЂР°Р·РґРµР».'
+    errorMessage.value = error?.response?.data?.detail || 'Не удалось загрузить секцию.'
   } finally {
     loading.value = false
   }
@@ -49,19 +57,30 @@ async function save() {
   successMessage.value = ''
 
   try {
-    await sectionsStore.patchSection(sectionSlug.value, {
-      content: contentModel.value,
+    let payloadContent = contentModel.value
+
+    if (!hasSchema.value) {
+      payloadContent = JSON.parse(contentJsonText.value || '{}')
+      contentModel.value = payloadContent
+    }
+
+    await sectionsStore.patchSection(siteId.value, sectionId.value, {
+      content: payloadContent,
     })
 
-    successMessage.value = 'РЎРѕС…СЂР°РЅРµРЅРѕ'
+    successMessage.value = 'Сохранено'
     setTimeout(() => {
       successMessage.value = ''
     }, 2500)
   } catch (error) {
-    const detail = error?.response?.data
-    errorMessage.value = detail && typeof detail === 'object'
-      ? JSON.stringify(detail, null, 2)
-      : 'РћС€РёР±РєР° РїСЂРё СЃРѕС…СЂР°РЅРµРЅРёРё.'
+    if (error instanceof SyntaxError) {
+      errorMessage.value = 'Некорректный JSON в редакторе.'
+    } else {
+      const detail = error?.response?.data
+      errorMessage.value = detail && typeof detail === 'object'
+        ? JSON.stringify(detail, null, 2)
+        : 'Ошибка при сохранении.'
+    }
   } finally {
     saving.value = false
   }
@@ -74,7 +93,7 @@ onMounted(load)
   <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <RouterLink to="/sections" class="text-sm font-medium text-brand-700 hover:text-brand-800">в†ђ Рљ СЂР°Р·РґРµР»Р°Рј</RouterLink>
+        <RouterLink :to="`/sites/${siteId}/sections`" class="text-sm font-medium text-brand-700 hover:text-brand-800">← К разделам</RouterLink>
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">{{ sectionTitle }}</h1>
       </div>
 
@@ -84,7 +103,7 @@ onMounted(load)
         :disabled="saving || loading"
         @click="save"
       >
-        {{ saving ? 'РЎРѕС…СЂР°РЅРµРЅРёРµ...' : 'РЎРѕС…СЂР°РЅРёС‚СЊ' }}
+        {{ saving ? 'Сохранение...' : 'Сохранить' }}
       </button>
     </div>
 
@@ -97,23 +116,22 @@ onMounted(load)
     </div>
 
     <section v-if="loading" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <p class="text-sm text-slate-500">Р—Р°РіСЂСѓР·РєР° СЃРµРєС†РёРё...</p>
+      <p class="text-sm text-slate-500">Загрузка секции...</p>
     </section>
 
     <section v-else class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900">РљРѕРЅС‚РµРЅС‚</h2>
-      <DynamicForm v-model="contentModel" :schema="schema" />
-    </section>
+      <h2 class="mb-4 text-lg font-semibold text-slate-900">Контент</h2>
 
-    <section v-if="!loading" class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900">РќР°СЃС‚СЂРѕР№РєРё СЃРµРєС†РёРё</h2>
+      <DynamicForm v-if="hasSchema" v-model="contentModel" :schema="schema" />
+
       <textarea
-        v-model="settingsText"
-        readonly
-        class="min-h-40 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs outline-none"
+        v-else
+        v-model="contentJsonText"
+        class="min-h-72 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
       />
+
       <p class="mt-2 text-xs text-slate-500">
-        РќР°СЃС‚СЂРѕР№РєРё РѕС‚РѕР±СЂР°Р¶Р°СЋС‚СЃСЏ РґР»СЏ СЃРїСЂР°РІРєРё. Р’ client API СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ `content`.
+        {{ hasSchema ? 'Форма построена по schema JSON.' : 'Schema не найдена, используется универсальный JSON-редактор.' }}
       </p>
     </section>
   </div>

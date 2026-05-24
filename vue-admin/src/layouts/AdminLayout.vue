@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { onMounted, ref } from 'vue'
 
 import Sidebar from '../components/Sidebar.vue'
@@ -20,13 +20,13 @@ onMounted(async () => {
     try {
       await authStore.getCurrentUser()
     } catch {
-      // handled by interceptor
+      return
     }
   }
 
-  if (!siteStore.site) {
+  if (!siteStore.sites.length) {
     try {
-      await siteStore.fetchSite()
+      await siteStore.fetchSites()
     } catch {
       // optional
     }

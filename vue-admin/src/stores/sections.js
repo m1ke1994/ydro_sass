@@ -1,46 +1,63 @@
-import { ref } from 'vue'
+﻿import { ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { getSectionFormRequest, getSectionsRequest, patchSectionRequest } from '../api/sections'
+import { createSectionRequest, getSectionRequest, getSectionsRequest, patchSectionRequest } from '../api/sections'
 
 export const useSectionsStore = defineStore('sections', () => {
   const sections = ref([])
-  const currentSectionForm = ref(null)
+  const currentSection = ref(null)
   const loading = ref(false)
 
-  async function fetchSections() {
+  async function fetchSections(siteId) {
     loading.value = true
     try {
-      const { data } = await getSectionsRequest()
-      sections.value = data
+      const { data } = await getSectionsRequest(siteId)
+      sections.value = Array.isArray(data) ? data : []
+      return sections.value
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function fetchSection(siteId, sectionId) {
+    loading.value = true
+    try {
+      const { data } = await getSectionRequest(siteId, sectionId)
+      currentSection.value = data
       return data
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchSectionForm(slug) {
-    loading.value = true
-    try {
-      const { data } = await getSectionFormRequest(slug)
-      currentSectionForm.value = data
-      return data
-    } finally {
-      loading.value = false
+  async function patchSection(siteId, sectionId, payload) {
+    const { data } = await patchSectionRequest(siteId, sectionId, payload)
+    const idx = sections.value.findIndex((item) => item.id === data.id)
+    if (idx >= 0) {
+      sections.value[idx] = data
     }
-  }
-
-  async function patchSection(slug, payload) {
-    const { data } = await patchSectionRequest(slug, payload)
     return data
+  }
+
+  async function createSection(siteId, payload) {
+    const { data } = await createSectionRequest(siteId, payload)
+    sections.value.push(data)
+    return data
+  }
+
+  function reset() {
+    sections.value = []
+    currentSection.value = null
   }
 
   return {
     sections,
-    currentSectionForm,
+    currentSection,
     loading,
     fetchSections,
-    fetchSectionForm,
+    fetchSection,
     patchSection,
+    createSection,
+    reset,
   }
 })

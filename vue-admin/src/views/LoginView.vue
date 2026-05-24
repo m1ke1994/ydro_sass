@@ -1,14 +1,16 @@
-<script setup>
+﻿<script setup>
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { useSiteStore } from '../stores/site'
 
 const router = useRouter()
 const authStore = useAuthStore()
+const siteStore = useSiteStore()
 
 const form = reactive({
-  username: 'meditation_owner',
+  email: 'test@test.ru',
   password: 'test-test',
 })
 
@@ -21,12 +23,19 @@ async function submit() {
 
   try {
     await authStore.login({
-      username: form.username,
+      email: form.email,
       password: form.password,
     })
-    router.push('/dashboard')
+
+    const sites = await siteStore.fetchSites()
+
+    if (sites.length === 1) {
+      router.push(`/sites/${sites[0].id}/sections`)
+    } else {
+      router.push('/dashboard')
+    }
   } catch (error) {
-    errorMessage.value = error?.response?.data?.detail || 'Не удалось войти. Проверьте логин и пароль.'
+    errorMessage.value = error?.response?.data?.detail || 'Не удалось войти. Проверьте email и пароль.'
   } finally {
     loading.value = false
   }
@@ -38,18 +47,18 @@ async function submit() {
     <div class="w-full max-w-md rounded-2xl border border-white bg-white p-8 shadow-soft">
       <p class="text-xs uppercase tracking-[0.25em] text-brand-600">Vue Admin</p>
       <h1 class="mt-3 text-2xl font-semibold text-slate-900">Вход в панель</h1>
-      <p class="mt-2 text-sm text-slate-500">Управляйте контентом вашего сайта из одного кабинета.</p>
+      <p class="mt-2 text-sm text-slate-500">Управляйте контентом ваших сайтов из ядра.</p>
 
       <form class="mt-6 space-y-4" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700">Email или username</label>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Email</label>
           <input
-            v-model="form.username"
-            type="text"
-            autocomplete="username"
+            v-model="form.email"
+            type="email"
+            autocomplete="email"
             class="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
-            placeholder="meditation_owner"
-          />
+            placeholder="test@test.ru"
+          >
         </div>
 
         <div>
@@ -60,7 +69,7 @@ async function submit() {
             autocomplete="current-password"
             class="w-full rounded-xl border border-slate-300 px-3 py-2 outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
             placeholder="••••••••"
-          />
+          >
         </div>
 
         <p v-if="errorMessage" class="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
