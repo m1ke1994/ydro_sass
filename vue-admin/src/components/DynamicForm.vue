@@ -10,6 +10,10 @@ const props = defineProps({
     type: Object,
     default: () => ({}),
   },
+  uploadContext: {
+    type: Object,
+    default: () => ({}),
+  },
 })
 
 const emit = defineEmits(['update:modelValue'])
@@ -29,6 +33,8 @@ function updateField(key, value) {
       :key="field.key"
       :field="field"
       :model-value="modelValue?.[field.key]"
+      :upload-context="uploadContext"
+      :path-prefix="field.key"
       @update:model-value="(value) => updateField(field.key, value)"
     />
   </div>

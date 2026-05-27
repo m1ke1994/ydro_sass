@@ -1,12 +1,22 @@
-from copy import deepcopy
+﻿from copy import deepcopy
+import mimetypes
 import os
+from pathlib import Path
+import shutil
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from apps.accounts.models import ClientProfile
+from apps.mediafiles.models import MediaFile
 from apps.sites.models import SectionSchema, Site, SiteSection
+
+MEDIA_KEY_HINTS = ("image", "video", "avatar", "poster", "photo", "background")
+SECTION_MEDIA_FOLDER_ALIAS = {
+    "services": "formats",
+}
 
 SECTION_SEEDS = [
     {
@@ -22,6 +32,7 @@ SECTION_SEEDS = [
                 {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
                 {"key": "image", "label": "Фоновое изображение", "type": "image", "default": ""},
                 {"key": "background_video", "label": "Фоновое видео", "type": "video", "default": ""},
+                {"key": "tag", "label": "Метка", "type": "text", "default": ""},
                 {"key": "order", "label": "Порядок", "type": "number", "default": 1},
                 {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
@@ -29,11 +40,12 @@ SECTION_SEEDS = [
         "content": {
             "title": "A Meditation",
             "subtitle": "Пространство практик и бережного внимания к себе",
-            "description": "Медитации и игра Лила для ясности, внутренней опоры и спокойствия.",
-            "button_text": "Записаться",
+            "description": "Практика, где игра становится проводником к ясности, спокойствию и внутренним ответам.",
+            "button_text": "Записаться на игру",
             "button_link": "#contacts",
             "image": "/images/Lila_Olga_2.2.poster.jpg",
             "background_video": "/images/Lila_Olga_2.2_compressed.mp4",
+            "tag": "ЛИЛА МОСКВА",
             "order": 1,
             "is_active": True,
         },
@@ -47,8 +59,6 @@ SECTION_SEEDS = [
                 {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
                 {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
                 {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
-                {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
-                {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
                 {"key": "image", "label": "Изображение", "type": "image", "default": ""},
                 {"key": "order", "label": "Порядок", "type": "number", "default": 2},
                 {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
@@ -57,9 +67,7 @@ SECTION_SEEDS = [
         "content": {
             "title": "О проекте",
             "subtitle": "Бережные практики без спешки",
-            "description": "Мы создаём спокойное пространство, где можно замедлиться, услышать себя и выбрать следующий шаг в жизни и работе.",
-            "button_text": "Подробнее",
-            "button_link": "#guide",
+            "description": "Мы создаем спокойное пространство, где можно замедлиться, услышать себя и выбрать следующий шаг.",
             "image": "/images/2025-02-26 12-35-42.JPG",
             "order": 2,
             "is_active": True,
@@ -74,8 +82,7 @@ SECTION_SEEDS = [
                 {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
                 {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
                 {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
-                {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
-                {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
+                {"key": "tag", "label": "Метка", "type": "text", "default": ""},
                 {"key": "image", "label": "Фото", "type": "image", "default": ""},
                 {"key": "order", "label": "Порядок", "type": "number", "default": 3},
                 {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
@@ -84,18 +91,117 @@ SECTION_SEEDS = [
         "content": {
             "title": "Проводник практик",
             "subtitle": "Ольга Бердникова",
-            "description": "Провожу игру Лила и медитации мягко, бережно и понятно, чтобы изменения в жизни были устойчивыми и реальными.",
-            "button_text": "Выбрать формат",
-            "button_link": "#services",
+            "description": "Практик осознанности, медитации и Игры Лила.",
+            "tag": "Проводник игры Лила",
             "image": "/images/2025-02-26 12-35-42.JPG",
             "order": 3,
             "is_active": True,
         },
     },
     {
+        "key": "meditations",
+        "title": "Meditations",
+        "order": 4,
+        "schema": {
+            "fields": [
+                {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
+                {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
+                {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
+                {
+                    "key": "items",
+                    "label": "Практики",
+                    "type": "repeater",
+                    "default": [],
+                    "fields": [
+                        {"key": "number", "label": "Номер", "type": "text", "default": ""},
+                        {"key": "title", "label": "Название", "type": "text", "default": ""},
+                        {"key": "text", "label": "Описание", "type": "textarea", "default": ""},
+                        {"key": "image", "label": "Изображение", "type": "image", "default": ""},
+                        {"key": "type", "label": "Тип", "type": "select", "default": "image", "options": ["image", "video"]},
+                    ],
+                },
+                {"key": "order", "label": "Порядок", "type": "number", "default": 4},
+                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
+            ]
+        },
+        "content": {
+            "title": "Медитации",
+            "subtitle": "Практики тишины",
+            "description": "Пространство тишины, бережного внимания и внутренней опоры.",
+            "items": [
+                {
+                    "number": "01",
+                    "title": "Глубокое расслабление",
+                    "text": "Мягкая практика для снятия напряжения.",
+                    "image": "/images/m1.jpg",
+                    "type": "image",
+                },
+                {
+                    "number": "02",
+                    "title": "Восстановление ресурса",
+                    "text": "Тишина и дыхание для внутреннего восстановления.",
+                    "image": "/images/Lila_Olga_2.2_compressed.mp4",
+                    "type": "video",
+                },
+                {
+                    "number": "03",
+                    "title": "Контакт с собой",
+                    "text": "Практика возвращения к ощущениям и ясности.",
+                    "image": "/images/m3.jpg",
+                    "type": "image",
+                },
+                {
+                    "number": "04",
+                    "title": "Внутренняя настройка",
+                    "text": "Мягкая настройка на важный период жизни.",
+                    "image": "/images/m4.jpg",
+                    "type": "image",
+                },
+            ],
+            "order": 4,
+            "is_active": True,
+        },
+    },
+    {
+        "key": "gallery",
+        "title": "Gallery",
+        "order": 5,
+        "schema": {
+            "fields": [
+                {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
+                {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
+                {
+                    "key": "items",
+                    "label": "Галерея",
+                    "type": "repeater",
+                    "default": [],
+                    "fields": [
+                        {"key": "src", "label": "Изображение", "type": "image", "default": ""},
+                        {"key": "alt", "label": "Alt", "type": "text", "default": ""},
+                        {"key": "title", "label": "Название", "type": "text", "default": ""},
+                    ],
+                },
+                {"key": "order", "label": "Порядок", "type": "number", "default": 5},
+                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
+            ]
+        },
+        "content": {
+            "title": "Галерея",
+            "subtitle": "Визуальная история",
+            "items": [
+                {"src": "/images/DSC08101.JPG", "alt": "Атмосфера практики", "title": "Пространство встречи"},
+                {"src": "/images/2025-02-26 13-06-17.JPG", "alt": "Тихая практика", "title": "Тихая практика"},
+                {"src": "/images/IMG_5131.JPG", "alt": "Детали пространства", "title": "Детали пространства"},
+                {"src": "/images/Lila_Olga_2.2.poster.jpg", "alt": "Глубокое состояние", "title": "Глубокое состояние"},
+            ],
+            "order": 5,
+            "is_active": True,
+        },
+    },
+    {
         "key": "services",
         "title": "Services",
-        "order": 4,
+        "order": 6,
         "schema": {
             "fields": [
                 {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
@@ -103,9 +209,6 @@ SECTION_SEEDS = [
                 {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
                 {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
                 {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
-                {"key": "image", "label": "Изображение", "type": "image", "default": ""},
-                {"key": "order", "label": "Порядок", "type": "number", "default": 4},
-                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
                 {
                     "key": "tabs",
                     "label": "Вкладки форматов",
@@ -130,6 +233,8 @@ SECTION_SEEDS = [
                         },
                     ],
                 },
+                {"key": "order", "label": "Порядок", "type": "number", "default": 6},
+                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
         },
         "content": {
@@ -138,9 +243,6 @@ SECTION_SEEDS = [
             "description": "Все форматы можно адаптировать под ваш запрос.",
             "button_text": "Записаться",
             "button_link": "#contacts",
-            "image": "",
-            "order": 4,
-            "is_active": True,
             "tabs": [
                 {
                     "key": "lila",
@@ -148,23 +250,23 @@ SECTION_SEEDS = [
                     "cards": [
                         {
                             "title": "Индивидуальная игра Лила",
-                            "description": "Личная практика для глубокого разбора запроса, поиска внутренней опоры и честного диалога с собой.",
-                            "duration": "2–3 часа",
+                            "description": "Личная практика для глубокого разбора запроса и поиска внутренней опоры.",
+                            "duration": "2-3 часа",
                             "format": "очно / онлайн",
                             "price": "от 5 000 ₽",
                             "button_text": "Записаться",
                         },
                         {
                             "title": "Групповая игра Лила",
-                            "description": "Практика в малой группе, где каждый участник проходит свой путь через поле игры и получает поддержку пространства.",
-                            "duration": "3–4 часа",
+                            "description": "Практика в малой группе, где каждый участник проходит свой путь через поле игры.",
+                            "duration": "3-4 часа",
                             "format": "очно",
                             "price": "от 3 000 ₽",
                             "button_text": "Записаться",
                         },
                         {
                             "title": "Парная игра Лила",
-                            "description": "Формат для двух участников, которые хотят посмотреть на общий запрос, отношения или совместное движение.",
+                            "description": "Формат для двух участников с общим запросом и сопровождением проводника.",
                             "duration": "3 часа",
                             "format": "очно / онлайн",
                             "price": "от 7 000 ₽",
@@ -178,7 +280,7 @@ SECTION_SEEDS = [
                     "cards": [
                         {
                             "title": "Индивидуальная медитация",
-                            "description": "Персональная мягкая практика для восстановления, замедления и возвращения к внутреннему спокойствию.",
+                            "description": "Персональная практика для восстановления, тишины и контакта с собой.",
                             "duration": "60 минут",
                             "format": "очно / онлайн",
                             "price": "от 3 000 ₽",
@@ -186,15 +288,15 @@ SECTION_SEEDS = [
                         },
                         {
                             "title": "Групповая медитация",
-                            "description": "Спокойная практика в группе, которая помогает выдохнуть, отпустить напряжение и почувствовать опору.",
-                            "duration": "60–90 минут",
+                            "description": "Мягкая практика в группе для замедления и внутренней опоры.",
+                            "duration": "60-90 минут",
                             "format": "очно",
                             "price": "от 1 500 ₽",
                             "button_text": "Записаться",
                         },
                         {
                             "title": "Медитация сопровождения",
-                            "description": "Формат регулярных встреч для тех, кто хочет мягко встроить практику в свою жизнь и идти постепенно.",
+                            "description": "Формат регулярных встреч для постепенного и бережного пути.",
                             "duration": "4 встречи",
                             "format": "очно / онлайн",
                             "price": "по договоренности",
@@ -203,12 +305,14 @@ SECTION_SEEDS = [
                     ],
                 },
             ],
+            "order": 6,
+            "is_active": True,
         },
     },
     {
         "key": "reviews",
         "title": "Reviews",
-        "order": 5,
+        "order": 7,
         "schema": {
             "fields": [
                 {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
@@ -216,9 +320,6 @@ SECTION_SEEDS = [
                 {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
                 {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
                 {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
-                {"key": "image", "label": "Изображение", "type": "image", "default": ""},
-                {"key": "order", "label": "Порядок", "type": "number", "default": 5},
-                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
                 {
                     "key": "items",
                     "label": "Отзывы",
@@ -231,17 +332,16 @@ SECTION_SEEDS = [
                         {"key": "text", "label": "Текст", "type": "textarea", "default": ""},
                     ],
                 },
+                {"key": "order", "label": "Порядок", "type": "number", "default": 7},
+                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
         },
         "content": {
             "title": "Отзывы участников",
             "subtitle": "Реальные впечатления",
-            "description": "После практик участники отмечают больше ясности и спокойствия.",
-            "button_text": "Читать отзывы",
+            "description": "Истории людей, которые прошли практику и поделились своим опытом.",
+            "button_text": "Читать больше отзывов",
             "button_link": "https://t.me/leelabirdcase",
-            "image": "",
-            "order": 5,
-            "is_active": True,
             "items": [
                 {
                     "name": "Участница игры",
@@ -250,26 +350,37 @@ SECTION_SEEDS = [
                     "text": "Очень бережная атмосфера и глубокий процесс. После встречи стало легче принимать решения.",
                 },
                 {
-                    "name": "Участница медитаций",
+                    "name": "Участница игры",
                     "date": "Отзыв из Telegram",
                     "avatar": "/images/IMG_1246.JPG",
-                    "text": "Регулярные практики помогли снизить уровень стресса и вернуть внутренний баланс.",
+                    "text": "Комфортная игра, личные инсайты и спокойное пространство для честного диалога.",
+                },
+                {
+                    "name": "Участница игры",
+                    "date": "Отзыв из Telegram",
+                    "avatar": "/images/IMG_1249.JPG",
+                    "text": "Игра помогла подсветить глубинные вещи и наметить уверенное движение вперед.",
+                },
+                {
+                    "name": "Участница игры",
+                    "date": "Отзыв из Telegram",
+                    "avatar": "/images/IMG_1988.JPG",
+                    "text": "Спокойно, бережно и честно. Появилась ясность и внутренняя опора.",
                 },
             ],
+            "order": 7,
+            "is_active": True,
         },
     },
     {
         "key": "contacts",
         "title": "Contacts",
-        "order": 6,
+        "order": 8,
         "schema": {
             "fields": [
                 {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
                 {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
                 {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
-                {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
-                {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
-                {"key": "image", "label": "Изображение", "type": "image", "default": ""},
                 {"key": "phone", "label": "Телефон", "type": "text", "default": ""},
                 {"key": "email", "label": "Email", "type": "text", "default": ""},
                 {"key": "telegram", "label": "Telegram", "type": "text", "default": ""},
@@ -286,65 +397,34 @@ SECTION_SEEDS = [
                         {"key": "lng", "label": "Долгота", "type": "number", "default": 0},
                     ],
                 },
-                {"key": "order", "label": "Порядок", "type": "number", "default": 6},
+                {"key": "order", "label": "Порядок", "type": "number", "default": 8},
                 {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
         },
         "content": {
             "title": "Контакты",
             "subtitle": "Свяжитесь для записи",
-            "description": "Напишите или позвоните, чтобы подобрать подходящий формат практики.",
-            "button_text": "Написать",
-            "button_link": "mailto:admin@test.ru",
-            "image": "",
+            "description": "Напишите или позвоните, чтобы подобрать удобный формат практики.",
             "phone": "+7 903 198-91-88",
             "email": "admin@test.ru",
             "telegram": "@leelabirdcase",
             "address": "Москва, ул. Ботаническая, 33В стр 1",
             "locations": [
-                {
-                    "title": "Парк Горького",
-                    "address": "Москва, ул. Крымский Вал, 9",
-                    "lat": 55.7298,
-                    "lng": 37.6011,
-                },
-                {
-                    "title": "Патриаршие пруды",
-                    "address": "Москва, Патриаршие пруды",
-                    "lat": 55.7636,
-                    "lng": 37.5906,
-                },
-                {
-                    "title": "ВДНХ",
-                    "address": "Москва, проспект Мира, 119",
-                    "lat": 55.8298,
-                    "lng": 37.6328,
-                },
-                {
-                    "title": "Третьяковская галерея",
-                    "address": "Москва, Лаврушинский пер., 10",
-                    "lat": 55.7414,
-                    "lng": 37.6208,
-                },
+                {"title": "Парк Горького", "address": "Москва, ул. Крымский Вал, 9", "lat": 55.7298, "lng": 37.6011},
+                {"title": "Патриаршие пруды", "address": "Москва, Патриаршие пруды", "lat": 55.7636, "lng": 37.5906},
+                {"title": "ВДНХ", "address": "Москва, проспект Мира, 119", "lat": 55.8298, "lng": 37.6328},
+                {"title": "Третьяковская галерея", "address": "Москва, Лаврушинский пер., 10", "lat": 55.7414, "lng": 37.6208},
             ],
-            "order": 6,
+            "order": 8,
             "is_active": True,
         },
     },
     {
         "key": "footer",
         "title": "Footer",
-        "order": 7,
+        "order": 9,
         "schema": {
             "fields": [
-                {"key": "title", "label": "Заголовок", "type": "text", "default": ""},
-                {"key": "subtitle", "label": "Подзаголовок", "type": "text", "default": ""},
-                {"key": "description", "label": "Описание", "type": "textarea", "default": ""},
-                {"key": "button_text", "label": "Текст кнопки", "type": "text", "default": ""},
-                {"key": "button_link", "label": "Ссылка кнопки", "type": "text", "default": ""},
-                {"key": "image", "label": "Изображение", "type": "image", "default": ""},
-                {"key": "order", "label": "Порядок", "type": "number", "default": 7},
-                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
                 {"key": "text", "label": "Текст", "type": "textarea", "default": ""},
                 {
                     "key": "links",
@@ -357,29 +437,25 @@ SECTION_SEEDS = [
                         {"key": "target", "label": "Target", "type": "text", "default": "_self"},
                     ],
                 },
+                {"key": "order", "label": "Порядок", "type": "number", "default": 9},
+                {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
         },
         "content": {
-            "title": "Footer",
-            "subtitle": "",
-            "description": "",
-            "button_text": "",
-            "button_link": "",
-            "image": "",
-            "order": 7,
-            "is_active": True,
             "text": "A Meditation — практики осознанности, медитации и игра Лила для мягких изменений в жизни.",
             "links": [
                 {"label": "Записаться", "href": "#contacts", "target": "_self"},
                 {"label": "Telegram", "href": "https://t.me/leelabirdcase", "target": "_blank"},
             ],
+            "order": 9,
+            "is_active": True,
         },
     },
 ]
 
 
 class Command(BaseCommand):
-    help = "Create and refresh full demo data for the public A Meditation site."
+    help = "Create and refresh full demo data for the public A Meditation site with media in Django MEDIA."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -450,16 +526,128 @@ class Command(BaseCommand):
         )
         return site
 
+    def _public_assets_dir(self):
+        configured = os.getenv("DEMO_PUBLIC_SITE_DIR", "").strip()
+        if configured:
+            return Path(configured)
+
+        backend_root = Path(__file__).resolve().parents[4]
+        embedded_dir = backend_root / "demo_public"
+        if embedded_dir.exists():
+            return embedded_dir
+        sibling_dir = backend_root.parent / "a-meditation" / "frontend" / "public"
+        return sibling_dir
+
+    def _resolve_source_asset(self, asset_path):
+        if not isinstance(asset_path, str) or not asset_path.startswith("/"):
+            return None
+
+        public_dir = self._public_assets_dir()
+        candidate = (public_dir / asset_path.lstrip("/")).resolve()
+        if candidate.exists() and candidate.is_file():
+            return candidate
+
+        parent = candidate.parent
+        if not parent.exists():
+            return None
+
+        lowered = candidate.name.lower()
+        for sibling in parent.iterdir():
+            if sibling.is_file() and sibling.name.lower() == lowered:
+                return sibling
+
+        return None
+
+    def _is_media_field(self, field_schema):
+        field_type = str(field_schema.get("type") or "").lower()
+        field_key = str(field_schema.get("key") or "").lower()
+        if field_type in {"image", "video"}:
+            return True
+        return any(marker in field_key for marker in MEDIA_KEY_HINTS)
+
+    def _copy_asset_to_media(self, site, section_key, field_key, asset_path):
+        source = self._resolve_source_asset(asset_path)
+        if source is None:
+            return asset_path
+
+        section_folder = SECTION_MEDIA_FOLDER_ALIAS.get(section_key, section_key)
+        media_root = Path(settings.MEDIA_ROOT)
+        target_dir = media_root / "sites" / site.slug / section_folder
+        target_dir.mkdir(parents=True, exist_ok=True)
+
+        target = target_dir / source.name
+        if not target.exists() or source.stat().st_size != target.stat().st_size:
+            shutil.copy2(source, target)
+
+        relative_name = target.relative_to(media_root).as_posix()
+        media_path = f"{settings.MEDIA_URL.rstrip('/')}/{relative_name}"
+
+        mime_type = mimetypes.guess_type(source.name)[0] or ""
+        file_type = "video" if mime_type.startswith("video/") else "image"
+
+        MediaFile.objects.update_or_create(
+            site=site,
+            section_key=section_key,
+            field_key=field_key,
+            original_name=source.name,
+            defaults={
+                "file": relative_name,
+                "title": source.stem,
+                "alt": source.stem,
+                "description": f"{section_key}:{field_key}",
+                "file_type": file_type,
+                "mime_type": mime_type,
+                "size": source.stat().st_size,
+            },
+        )
+
+        return media_path
+
+    def _hydrate_section_media(self, site, section_key, schema, content):
+        hydrated = deepcopy(content)
+
+        def walk(fields, payload, path_prefix=""):
+            if not isinstance(payload, dict):
+                return
+
+            for field in fields:
+                if not isinstance(field, dict):
+                    continue
+
+                key = field.get("key")
+                if not key or key not in payload:
+                    continue
+
+                value = payload.get(key)
+                full_path = f"{path_prefix}.{key}" if path_prefix else str(key)
+
+                if self._is_media_field(field) and isinstance(value, str) and value.startswith("/"):
+                    payload[key] = self._copy_asset_to_media(site, section_key, full_path, value)
+                    continue
+
+                if field.get("type") == "repeater" and isinstance(value, list):
+                    nested_fields = field.get("fields") or []
+                    for idx, row in enumerate(value):
+                        row_prefix = f"{full_path}.{idx}"
+                        if isinstance(row, dict):
+                            walk(nested_fields, row, row_prefix)
+
+        walk(schema.get("fields") or [], hydrated)
+        return hydrated
+
     def _upsert_sections(self, site):
         keep_keys = []
         for section_seed in SECTION_SEEDS:
             keep_keys.append(section_seed["key"])
 
+            schema = deepcopy(section_seed["schema"])
+            content = self._hydrate_section_media(site, section_seed["key"], schema, section_seed["content"])
+
             SectionSchema.objects.update_or_create(
                 section_key=section_seed["key"],
                 defaults={
                     "title": section_seed["title"],
-                    "schema": deepcopy(section_seed["schema"]),
+                    "schema": schema,
                     "description": f"Demo schema for {section_seed['key']}",
                 },
             )
@@ -472,8 +660,8 @@ class Command(BaseCommand):
                     "section_type": section_seed["key"],
                     "order": section_seed["order"],
                     "is_active": True,
-                    "schema": deepcopy(section_seed["schema"]),
-                    "content": deepcopy(section_seed["content"]),
+                    "schema": schema,
+                    "content": content,
                     "component_key": f"{section_seed['key']}-section",
                     "settings": {
                         "theme": "light",

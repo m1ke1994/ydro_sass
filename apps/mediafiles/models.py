@@ -5,10 +5,23 @@ from urllib.parse import urljoin
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils.text import slugify
 
 from apps.sites.models import Site
 
 ALLOWED_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "mp4", "webm"}
+
+
+def _build_upload_path(instance, filename):
+    site_slug = slugify(instance.site.slug if instance.site_id and instance.site else "site")
+    section_slug = slugify(instance.section_key or "uploads")
+
+    original_name = Path(filename).name
+    suffix = Path(original_name).suffix.lower()
+    stem = slugify(Path(original_name).stem) or "file"
+    normalized_name = f"{stem}{suffix}"
+
+    return f"sites/{site_slug}/{section_slug}/{normalized_name}"
 
 
 class MediaFile(models.Model):
@@ -18,7 +31,10 @@ class MediaFile(models.Model):
         related_name="media_files",
         verbose_name="Сайт",
     )
-    file = models.FileField(upload_to="site_media/%Y/%m/", verbose_name="Файл")
+    section_key = models.CharField(max_length=100, blank=True, default="", verbose_name="Секция")
+    field_key = models.CharField(max_length=255, blank=True, default="", verbose_name="Поле")
+    original_name = models.CharField(max_length=255, blank=True, default="", verbose_name="Оригинальное имя")
+    file = models.FileField(upload_to=_build_upload_path, verbose_name="Файл")
     file_type = models.CharField(max_length=50, blank=True, verbose_name="Тип файла")
     title = models.CharField(max_length=255, blank=True, verbose_name="Название")
     alt = models.CharField(max_length=255, blank=True, verbose_name="Alt-текст")
@@ -31,6 +47,12 @@ class MediaFile(models.Model):
         verbose_name = "Медиафайл"
         verbose_name_plural = "Медиафайлы"
         ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=("site", "section_key", "field_key", "original_name"),
+                name="unique_site_section_field_original_media",
+            )
+        ]
 
     def __str__(self):
         return Path(self.file.name).name if self.file else f"media-{self.pk}"
@@ -81,7 +103,19 @@ class MediaFile(models.Model):
         base_url = getattr(settings, "SITE_BASE_URL", "http://127.0.0.1:8000")
         return urljoin(f"{base_url.rstrip('/')}/", file_url.lstrip("/"))
 
+    def get_relative_media_path(self):
+        if not self.file:
+            return ""
+        return self.file.url
+
+    def get_filename(self):
+        if not self.file:
+            return ""
+        return Path(self.file.name).name
+
     def save(self, *args, **kwargs):
         self.clean()
+        if self.file and not self.original_name:
+            self.original_name = Path(self.file.name).name
         self._detect_metadata()
         super().save(*args, **kwargs)

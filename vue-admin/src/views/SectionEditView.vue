@@ -25,6 +25,12 @@ const currentSection = computed(() => sectionsStore.currentSection)
 const sectionTitle = computed(() => currentSection.value?.title || `Section ${sectionId.value}`)
 const schema = computed(() => currentSection.value?.schema || currentSection.value?.schema_template?.schema || { fields: [] })
 const hasSchema = computed(() => Array.isArray(schema.value?.fields) && schema.value.fields.length > 0)
+const uploadContext = computed(() => ({
+  siteId: siteId.value,
+  siteSlug: siteStore.currentSite?.slug || '',
+  sectionKey: currentSection.value?.key || '',
+  apiBaseUrl: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000',
+}))
 
 function clone(value) {
   return value === undefined ? {} : JSON.parse(JSON.stringify(value))
@@ -122,7 +128,7 @@ onMounted(load)
     <section v-else class="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
       <h2 class="mb-4 text-lg font-semibold text-slate-900">Контент</h2>
 
-      <DynamicForm v-if="hasSchema" v-model="contentModel" :schema="schema" />
+      <DynamicForm v-if="hasSchema" v-model="contentModel" :schema="schema" :upload-context="uploadContext" />
 
       <textarea
         v-else

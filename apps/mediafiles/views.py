@@ -1,6 +1,6 @@
 ﻿from django.db.models import QuerySet
 from rest_framework import generics
-from rest_framework.exceptions import NotFound
+from rest_framework.exceptions import NotFound, PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 
@@ -34,8 +34,34 @@ class ClientMediaUploadView(ClientMediaAccessMixin, generics.CreateAPIView):
     serializer_class = MediaFileSerializer
     parser_classes = [MultiPartParser, FormParser]
 
+    def _resolve_site(self):
+        requested = self.request.data.get("site")
+        base_queryset = Site.objects.filter(is_active=True)
+
+        if requested in (None, ""):
+            return self.get_client_site()
+
+        site = None
+        if str(requested).isdigit():
+            site = base_queryset.filter(id=int(requested)).first()
+        if site is None:
+            site = base_queryset.filter(slug=str(requested)).first()
+        if site is None:
+            raise NotFound(detail="Site was not found.")
+
+        if not self.request.user.is_superuser and site.owner_id != self.request.user.id:
+            raise PermissionDenied(detail="You do not have access to this site.")
+
+        return site
+
     def perform_create(self, serializer):
-        serializer.save(site=self.get_client_site())
+        site = self._resolve_site()
+        serializer.save(
+            site=site,
+            section_key=str(self.request.data.get("section") or "uploads"),
+            field_key=str(self.request.data.get("field") or ""),
+            original_name=getattr(self.request.data.get("file"), "name", ""),
+        )
 
 
 class ClientMediaDeleteView(ClientMediaAccessMixin, generics.DestroyAPIView):
@@ -50,3 +76,10 @@ class ClientMediaDeleteView(ClientMediaAccessMixin, generics.DestroyAPIView):
 
         if file_name:
             storage.delete(file_name)
+
+
+class UploadFileView(ClientMediaUploadView):
+    """
+    Alias endpoint for uploader integrations.
+    POST /api/uploads/
+    """
