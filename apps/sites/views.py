@@ -90,6 +90,27 @@ class PublicSiteByDomainView(APIView):
         return Response({"site": site_data, "sections": sections_data})
 
 
+class PublicSiteBundleBySlugView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        site = (
+            Site.objects.filter(slug=self.kwargs["site_slug"], is_active=True)
+            .annotate(sections_count=Count("sections", filter=Q(sections__is_active=True)))
+            .first()
+        )
+        if site is None:
+            raise NotFound(detail="Active site was not found.")
+
+        sections = SiteSection.objects.filter(site=site, is_active=True).order_by("order", "title")
+        return Response(
+            {
+                "site": PublicSiteSerializer(site).data,
+                "sections": PublicSiteSectionSerializer(sections, many=True).data,
+            }
+        )
+
+
 class AdminSiteAccessMixin:
     permission_classes = [IsAuthenticated]
 

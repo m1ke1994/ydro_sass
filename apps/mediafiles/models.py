@@ -1,4 +1,4 @@
-import mimetypes
+﻿import mimetypes
 from pathlib import Path
 from urllib.parse import urljoin
 
