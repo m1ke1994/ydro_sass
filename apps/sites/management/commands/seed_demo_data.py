@@ -274,6 +274,18 @@ SECTION_SEEDS = [
                 {"key": "email", "label": "Email", "type": "text", "default": ""},
                 {"key": "telegram", "label": "Telegram", "type": "text", "default": ""},
                 {"key": "address", "label": "Адрес", "type": "textarea", "default": ""},
+                {
+                    "key": "locations",
+                    "label": "Локации",
+                    "type": "repeater",
+                    "default": [],
+                    "fields": [
+                        {"key": "title", "label": "Название", "type": "text", "default": ""},
+                        {"key": "address", "label": "Адрес", "type": "text", "default": ""},
+                        {"key": "lat", "label": "Широта", "type": "number", "default": 0},
+                        {"key": "lng", "label": "Долгота", "type": "number", "default": 0},
+                    ],
+                },
                 {"key": "order", "label": "Порядок", "type": "number", "default": 6},
                 {"key": "is_active", "label": "Активно", "type": "boolean", "default": True},
             ]
@@ -289,6 +301,32 @@ SECTION_SEEDS = [
             "email": "admin@test.ru",
             "telegram": "@leelabirdcase",
             "address": "Москва, ул. Ботаническая, 33В стр 1",
+            "locations": [
+                {
+                    "title": "Парк Горького",
+                    "address": "Москва, ул. Крымский Вал, 9",
+                    "lat": 55.7298,
+                    "lng": 37.6011,
+                },
+                {
+                    "title": "Патриаршие пруды",
+                    "address": "Москва, Патриаршие пруды",
+                    "lat": 55.7636,
+                    "lng": 37.5906,
+                },
+                {
+                    "title": "ВДНХ",
+                    "address": "Москва, проспект Мира, 119",
+                    "lat": 55.8298,
+                    "lng": 37.6328,
+                },
+                {
+                    "title": "Третьяковская галерея",
+                    "address": "Москва, Лаврушинский пер., 10",
+                    "lat": 55.7414,
+                    "lng": 37.6208,
+                },
+            ],
             "order": 6,
             "is_active": True,
         },
