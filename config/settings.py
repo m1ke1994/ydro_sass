@@ -7,18 +7,28 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv("SECRET_KEY", "change_me")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes", "on")
+def env(key, default=None, aliases=()):
+    for candidate in (key, *aliases):
+        value = os.getenv(candidate)
+        if value not in (None, ""):
+            return value
+    return default
 
-DEFAULT_ALLOWED_HOSTS = [
-    "127.0.0.1",
-    "localhost",
-    "testserver",
-]
-ALLOWED_HOSTS = [
-    host.strip() for host in os.getenv("ALLOWED_HOSTS", ",".join(DEFAULT_ALLOWED_HOSTS)).split(",") if host.strip()
-]
+
+def env_bool(key, default=False, aliases=()):
+    return str(env(key, default, aliases=aliases)).lower() in {"1", "true", "yes", "on"}
+
+
+def env_csv(key, default="", aliases=()):
+    return [item.strip() for item in str(env(key, default, aliases=aliases)).split(",") if item.strip()]
+
+
+SECRET_KEY = env("DJANGO_SECRET_KEY", "change_me", aliases=("SECRET_KEY",))
+DEBUG = env_bool("DJANGO_DEBUG", "True")
+
+DEFAULT_ALLOWED_HOSTS = ["127.0.0.1", "localhost", "testserver", "backend"]
+ALLOWED_HOSTS = env_csv("DJANGO_ALLOWED_HOSTS", ",".join(DEFAULT_ALLOWED_HOSTS), aliases=("ALLOWED_HOSTS",))
 
 INSTALLED_APPS = [
     "corsheaders",
@@ -65,23 +75,23 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DB_ENGINE = os.getenv("DB_ENGINE", "sqlite").lower()
+DB_ENGINE = env("DB_ENGINE", "sqlite").lower()
 if DB_ENGINE == "postgres":
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
-            "NAME": os.getenv("DB_NAME", "django_db"),
-            "USER": os.getenv("DB_USER", "postgres"),
-            "PASSWORD": os.getenv("DB_PASSWORD", "123456"),
-            "HOST": os.getenv("DB_HOST", "localhost"),
-            "PORT": os.getenv("DB_PORT", "5432"),
+            "NAME": env("POSTGRES_DB", "django_db", aliases=("DB_NAME",)),
+            "USER": env("POSTGRES_USER", "postgres", aliases=("DB_USER",)),
+            "PASSWORD": env("POSTGRES_PASSWORD", "123456", aliases=("DB_PASSWORD",)),
+            "HOST": env("POSTGRES_HOST", "localhost", aliases=("DB_HOST",)),
+            "PORT": env("POSTGRES_PORT", "5432", aliases=("DB_PORT",)),
         }
     }
 else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / os.getenv("SQLITE_NAME", "db.sqlite3"),
+            "NAME": BASE_DIR / env("SQLITE_NAME", "db.sqlite3"),
         }
     }
 
@@ -126,15 +136,33 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
+REDIS_URL = env("REDIS_URL", "")
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "yadro",
+        }
+    }
+    SESSION_ENGINE = "django.contrib.sessions.backends.cached_db"
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
+    }
+
 DEFAULT_CORS_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-CORS_ALLOWED_ORIGINS = [
-    origin.strip() for origin in os.getenv("CORS_ALLOWED_ORIGINS", ",".join(DEFAULT_CORS_ORIGINS)).split(",") if origin.strip()
-]
+CORS_ALLOWED_ORIGINS = env_csv("CORS_ALLOWED_ORIGINS", ",".join(DEFAULT_CORS_ORIGINS))
 CORS_ALLOW_CREDENTIALS = True
 
 DEFAULT_CSRF_TRUSTED_ORIGINS = [
@@ -143,10 +171,8 @@ DEFAULT_CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv("CSRF_TRUSTED_ORIGINS", ",".join(DEFAULT_CSRF_TRUSTED_ORIGINS)).split(",")
-    if origin.strip()
-]
+CSRF_TRUSTED_ORIGINS = env_csv("CSRF_TRUSTED_ORIGINS", ",".join(DEFAULT_CSRF_TRUSTED_ORIGINS))
+
+SITE_BASE_URL = env("SITE_BASE_URL", "http://localhost:8000")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
