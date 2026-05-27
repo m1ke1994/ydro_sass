@@ -28,8 +28,14 @@ const navItems = computed(() => {
       to: `/sites/${siteStore.currentSiteId}/sections`,
       icon: '▦',
     })
+    items.push({
+      label: 'Заявки',
+      to: `/sites/${siteStore.currentSiteId}/leads`,
+      icon: '✉',
+    })
   } else {
     items.push({ label: 'Разделы', disabled: true, icon: '▦' })
+    items.push({ label: 'Заявки', disabled: true, icon: '✉' })
   }
 
   return items

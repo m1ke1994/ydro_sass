@@ -1,7 +1,7 @@
 ﻿from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
-from .models import SectionSchema, Site, SiteSection
+from .models import SectionSchema, Site, SiteLead, SiteSection
 
 
 class PublicSiteSerializer(serializers.ModelSerializer):
@@ -162,3 +162,95 @@ class AdminMySiteSectionPatchSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(details)
 
         return value
+
+
+class PublicLeadCreateSerializer(serializers.Serializer):
+    site_slug = serializers.SlugField()
+    section_key = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    form_name = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    name = serializers.CharField(max_length=255)
+    phone = serializers.CharField(max_length=100)
+    email = serializers.EmailField(required=False, allow_blank=True)
+    message = serializers.CharField(required=False, allow_blank=True)
+    service_type = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    service_title = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    source_url = serializers.URLField(required=False, allow_blank=True)
+    payload = serializers.JSONField(required=False)
+
+    default_error_messages = {
+        "required_fields": "Заполните обязательные поля",
+        "site_not_found": "Сайт не найден",
+    }
+
+    def validate(self, attrs):
+        required_fields = ("site_slug", "name", "phone")
+        if any(not str(attrs.get(field, "")).strip() for field in required_fields):
+            self.fail("required_fields")
+        return attrs
+
+    def create(self, validated_data):
+        site_slug = validated_data.pop("site_slug")
+        site = Site.objects.filter(slug=site_slug, is_active=True).first()
+        if site is None:
+            self.fail("site_not_found")
+
+        request = self.context.get("request")
+        meta = getattr(request, "META", {})
+
+        lead = SiteLead.objects.create(
+            site=site,
+            section_key=validated_data.get("section_key", ""),
+            form_name=validated_data.get("form_name", ""),
+            name=validated_data["name"],
+            phone=validated_data["phone"],
+            email=validated_data.get("email", ""),
+            message=validated_data.get("message", ""),
+            service_type=validated_data.get("service_type", ""),
+            service_title=validated_data.get("service_title", ""),
+            source_url=validated_data.get("source_url", ""),
+            user_agent=meta.get("HTTP_USER_AGENT", "")[:1000],
+            ip_address=self._extract_ip(meta),
+            payload=validated_data.get("payload", {}),
+        )
+        return lead
+
+    @staticmethod
+    def _extract_ip(meta):
+        x_forwarded_for = meta.get("HTTP_X_FORWARDED_FOR", "")
+        if x_forwarded_for:
+            return x_forwarded_for.split(",")[0].strip()
+        return meta.get("REMOTE_ADDR")
+
+
+class AdminLeadSerializer(serializers.ModelSerializer):
+    site_slug = serializers.CharField(source="site.slug", read_only=True)
+    site_name = serializers.CharField(source="site.name", read_only=True)
+    status_label = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = SiteLead
+        fields = (
+            "id",
+            "site",
+            "site_slug",
+            "site_name",
+            "section_key",
+            "form_name",
+            "name",
+            "phone",
+            "email",
+            "message",
+            "service_type",
+            "service_title",
+            "source_url",
+            "status",
+            "status_label",
+            "created_at",
+            "updated_at",
+        )
+
+
+class AdminLeadStatusPatchSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteLead
+        fields = ("status",)

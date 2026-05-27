@@ -3,6 +3,7 @@
 from .views import (
     PublicSiteByDomainView,
     PublicSiteDetailView,
+    PublicSiteLeadCreateBySlugView,
     PublicSiteSectionDetailView,
     PublicSiteSectionsListView,
 )
@@ -19,5 +20,6 @@ urlpatterns = [
         PublicSiteSectionDetailView.as_view(),
         name="public-site-section-detail",
     ),
+    path("sites/<slug:site_slug>/leads/", PublicSiteLeadCreateBySlugView.as_view(), name="public-site-lead-create"),
     path("by-domain/", PublicSiteByDomainView.as_view(), name="public-site-by-domain"),
 ]

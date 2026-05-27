@@ -1,6 +1,8 @@
 ﻿from django.urls import path
 
 from .views import (
+    AdminMyLeadDetailView,
+    AdminMyLeadsListView,
     AdminMySiteDetailView,
     AdminMySiteSectionDetailView,
     AdminMySiteSectionsListCreateView,
@@ -20,4 +22,6 @@ urlpatterns = [
         AdminMySiteSectionDetailView.as_view(),
         name="admin-my-site-section-detail",
     ),
+    path("leads/", AdminMyLeadsListView.as_view(), name="admin-leads-list"),
+    path("leads/<int:lead_id>/", AdminMyLeadDetailView.as_view(), name="admin-lead-detail"),
 ]

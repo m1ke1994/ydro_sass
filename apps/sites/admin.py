@@ -2,7 +2,7 @@
 from django.db.models import Count
 from django.utils.html import format_html, format_html_join
 
-from .models import SectionSchema, Site, SiteSection
+from .models import SectionSchema, Site, SiteLead, SiteSection
 
 
 class SiteSectionInline(admin.TabularInline):
@@ -115,3 +115,26 @@ class SiteSectionAdmin(admin.ModelAdmin):
             "<ul style='margin:0; padding-left:18px;'>{}</ul>",
             format_html_join("", "<li><code>{}</code> - {} <strong>({})</strong></li>", rows),
         )
+
+
+@admin.register(SiteLead)
+class SiteLeadAdmin(admin.ModelAdmin):
+    list_display = (
+        "created_at",
+        "site",
+        "name",
+        "phone",
+        "email",
+        "service_title",
+        "service_type",
+        "status",
+    )
+    list_filter = ("site", "status", "created_at", "service_type")
+    search_fields = ("name", "phone", "email", "message", "service_title")
+    readonly_fields = ("created_at", "updated_at", "user_agent", "ip_address", "payload")
+    fieldsets = (
+        ("Основное", {"fields": ("site", "status", "created_at", "updated_at")}),
+        ("Клиент", {"fields": ("name", "phone", "email", "message")}),
+        ("Источник", {"fields": ("section_key", "form_name", "service_type", "service_title", "source_url")}),
+        ("Техническое", {"fields": ("ip_address", "user_agent", "payload")}),
+    )

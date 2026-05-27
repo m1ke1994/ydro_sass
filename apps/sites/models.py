@@ -388,3 +388,51 @@ class SiteSection(models.Model):
 
     def __str__(self):
         return f"{self.site.name} - {self.title}"
+
+
+class SiteLead(models.Model):
+    class Status(models.TextChoices):
+        NEW = "new", "Новая"
+        IN_PROGRESS = "in_progress", "В работе"
+        DONE = "done", "Завершена"
+        ARCHIVED = "archived", "Архив"
+
+    site = models.ForeignKey(
+        Site,
+        on_delete=models.CASCADE,
+        related_name="leads",
+        verbose_name="Сайт",
+    )
+    section_key = models.CharField(max_length=100, blank=True, verbose_name="Ключ секции")
+    form_name = models.CharField(max_length=255, blank=True, verbose_name="Название формы")
+    name = models.CharField(max_length=255, verbose_name="Имя")
+    phone = models.CharField(max_length=100, verbose_name="Телефон")
+    email = models.EmailField(blank=True, verbose_name="Email")
+    message = models.TextField(blank=True, verbose_name="Сообщение")
+    service_type = models.CharField(max_length=100, blank=True, verbose_name="Тип услуги")
+    service_title = models.CharField(max_length=255, blank=True, verbose_name="Название услуги")
+    source_url = models.URLField(blank=True, verbose_name="Источник (URL)")
+    user_agent = models.TextField(blank=True, verbose_name="User-Agent")
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name="IP-адрес")
+    payload = models.JSONField(default=dict, blank=True, verbose_name="Дополнительные данные")
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.NEW,
+        db_index=True,
+        verbose_name="Статус",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
+
+    class Meta:
+        verbose_name = "Заявка"
+        verbose_name_plural = "Заявки"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["site", "status", "created_at"]),
+            models.Index(fields=["service_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.name} ({self.phone}) - {self.site.slug}"

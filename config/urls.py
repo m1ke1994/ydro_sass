@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from django.urls import include, path
 
 from apps.mediafiles.views import UploadFileView
-from apps.sites.views import PublicSiteBundleBySlugView
+from apps.sites.views import PublicLeadCreateView, PublicSiteBundleBySlugView
 
 admin.site.site_header = "Панель управления"
 admin.site.site_title = "Админка"
@@ -22,6 +22,7 @@ def api_root(_request):
                 "admin": "/api/admin/",
                 "media": "/api/client/media/",
                 "uploads": "/api/uploads/",
+                "leads": "/api/leads/",
                 "health": "/api/health/",
             },
         }
@@ -39,6 +40,7 @@ urlpatterns = [
     path("api/auth/", include("apps.accounts.urls")),
     path("api/public/", include("apps.sites.public_urls")),
     path("api/sites/<slug:site_slug>/", PublicSiteBundleBySlugView.as_view(), name="public-site-bundle"),
+    path("api/leads/", PublicLeadCreateView.as_view(), name="public-leads-create"),
     path("api/admin/", include("apps.sites.admin_urls")),
     path("api/uploads/", UploadFileView.as_view(), name="upload-file"),
     path("api/client/media/", include("apps.mediafiles.client_urls")),

@@ -3,7 +3,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from apps.sites.models import Site, SiteSection
+from apps.sites.models import Site, SiteLead, SiteSection
 
 
 class SitesApiTests(APITestCase):
@@ -159,3 +159,50 @@ class SitesApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.hero.refresh_from_db()
         self.assertFalse(self.hero.is_active)
+
+    def test_public_can_create_lead(self):
+        url = reverse("public-leads-create")
+        payload = {
+            "site_slug": self.site.slug,
+            "section_key": "contacts",
+            "form_name": "Форма записи",
+            "name": "Александр",
+            "phone": "+79990000000",
+            "message": "Хочу записаться",
+            "service_type": "lila",
+            "service_title": "Индивидуальная игра Лила",
+        }
+
+        response = self.client.post(url, payload, format="json")
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(SiteLead.objects.count(), 1)
+        lead = SiteLead.objects.first()
+        self.assertEqual(lead.site_id, self.site.id)
+        self.assertEqual(lead.status, SiteLead.Status.NEW)
+
+    def test_admin_user_sees_only_own_site_leads_and_can_patch_status(self):
+        own_lead = SiteLead.objects.create(site=self.site, name="Own", phone="+70000000001")
+        foreign_lead = SiteLead.objects.create(site=self.other_site, name="Foreign", phone="+70000000002")
+
+        self.client.force_authenticate(user=self.user)
+
+        list_url = reverse("admin-leads-list")
+        list_response = self.client.get(list_url)
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(list_response.data), 1)
+        self.assertEqual(list_response.data[0]["id"], own_lead.id)
+
+        patch_url = reverse("admin-lead-detail", kwargs={"lead_id": own_lead.id})
+        patch_response = self.client.patch(patch_url, {"status": SiteLead.Status.DONE}, format="json")
+        self.assertEqual(patch_response.status_code, status.HTTP_200_OK)
+        own_lead.refresh_from_db()
+        self.assertEqual(own_lead.status, SiteLead.Status.DONE)
+
+        foreign_patch_url = reverse("admin-lead-detail", kwargs={"lead_id": foreign_lead.id})
+        foreign_patch_response = self.client.patch(
+            foreign_patch_url,
+            {"status": SiteLead.Status.DONE},
+            format="json",
+        )
+        self.assertEqual(foreign_patch_response.status_code, status.HTTP_404_NOT_FOUND)
