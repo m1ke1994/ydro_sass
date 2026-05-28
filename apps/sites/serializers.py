@@ -45,6 +45,7 @@ class SectionSchemaSerializer(serializers.ModelSerializer):
 
 class AdminMySiteSerializer(serializers.ModelSerializer):
     sections_count = serializers.SerializerMethodField()
+    tracker_script_tag = serializers.SerializerMethodField()
 
     class Meta:
         model = Site
@@ -53,9 +54,11 @@ class AdminMySiteSerializer(serializers.ModelSerializer):
             "name",
             "slug",
             "domain",
+            "api_key",
             "seo",
             "is_active",
             "sections_count",
+            "tracker_script_tag",
             "created_at",
             "updated_at",
         )
@@ -65,6 +68,9 @@ class AdminMySiteSerializer(serializers.ModelSerializer):
         if annotated_count is not None:
             return annotated_count
         return obj.sections.filter(is_active=True).count()
+
+    def get_tracker_script_tag(self, obj):
+        return f'<script src="http://localhost:8000/tracker.js" data-api-key="{obj.api_key}"></script>'
 
 
 class AdminMySiteSectionSerializer(serializers.ModelSerializer):

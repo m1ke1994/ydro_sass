@@ -4,6 +4,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.text import slugify
+import secrets
 
 from .presets import (
     ABOUT_SCHEMA,
@@ -26,6 +27,10 @@ SUPPORTED_FIELD_TYPES = {
     "select",
     "repeater",
 }
+
+
+def generate_api_key() -> str:
+    return secrets.token_urlsafe(32)
 
 AUTO_SCHEMA_BY_SECTION_TYPE = {
     "hero": HERO_SCHEMA,
@@ -225,6 +230,13 @@ class Site(models.Model):
     name = models.CharField(max_length=255, verbose_name="Site name")
     slug = models.SlugField(max_length=255, unique=True, verbose_name="Site slug")
     domain = models.CharField(max_length=255, blank=True, verbose_name="Domain")
+    api_key = models.CharField(
+        max_length=128,
+        unique=True,
+        editable=False,
+        default=generate_api_key,
+        verbose_name="API key",
+    )
     seo = models.JSONField(default=dict, blank=True, verbose_name="SEO settings")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -243,6 +255,11 @@ class Site(models.Model):
 
     def __str__(self):
         return self.name
+
+    def save(self, *args, **kwargs):
+        if not self.api_key:
+            self.api_key = generate_api_key()
+        super().save(*args, **kwargs)
 
 
 class SectionSchema(models.Model):

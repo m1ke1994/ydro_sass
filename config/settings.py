@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "apps.accounts",
+    "apps.analytics",
     "apps.sites",
     "apps.mediafiles",
 ]

@@ -30,6 +30,7 @@ class SiteAdmin(admin.ModelAdmin):
         "name",
         "slug",
         "domain",
+        "api_key",
         "owner",
         "is_active",
         "sections_count",
@@ -38,9 +39,9 @@ class SiteAdmin(admin.ModelAdmin):
     list_filter = ("is_active", "created_at")
     search_fields = ("name", "slug", "domain", "owner__username", "owner__email")
     prepopulated_fields = {"slug": ("name",)}
-    readonly_fields = ("created_at", "updated_at")
+    readonly_fields = ("api_key", "created_at", "updated_at")
     fieldsets = (
-        ("Main", {"fields": ("name", "slug", "domain", "owner", "is_active")}),
+        ("Main", {"fields": ("name", "slug", "domain", "api_key", "owner", "is_active")}),
         ("SEO", {"fields": ("seo",)}),
         ("Meta", {"fields": ("created_at", "updated_at")}),
     )

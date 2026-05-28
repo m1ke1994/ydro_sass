@@ -29,12 +29,18 @@ const navItems = computed(() => {
       icon: '▦',
     })
     items.push({
+      label: 'Аналитика',
+      to: `/sites/${siteStore.currentSiteId}/analytics`,
+      icon: '◔',
+    })
+    items.push({
       label: 'Заявки',
       to: `/sites/${siteStore.currentSiteId}/leads`,
       icon: '✉',
     })
   } else {
     items.push({ label: 'Разделы', disabled: true, icon: '▦' })
+    items.push({ label: 'Аналитика', disabled: true, icon: '◔' })
     items.push({ label: 'Заявки', disabled: true, icon: '✉' })
   }
 

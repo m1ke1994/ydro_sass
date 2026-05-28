@@ -57,6 +57,7 @@ onMounted(async () => {
         <h2 class="mt-1 text-lg font-semibold text-slate-900">{{ site.name }}</h2>
         <p class="mt-1 text-sm text-slate-500">{{ site.domain || 'Домен не указан' }}</p>
         <p class="mt-3 text-xs text-slate-500">Активных секций: {{ site.sections_count }}</p>
+        <p class="mt-2 text-xs text-slate-500">API key: <span class="font-mono">{{ site.api_key }}</span></p>
 
         <button
           type="button"

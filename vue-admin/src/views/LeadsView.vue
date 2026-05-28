@@ -72,7 +72,9 @@ onMounted(load)
   <div class="space-y-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <RouterLink :to="`/sites/${siteId}/sections`" class="text-sm font-medium text-brand-700 hover:text-brand-800">← К разделам</RouterLink>
+        <RouterLink :to="`/sites/${siteId}/sections`" class="text-sm font-medium text-brand-700 hover:text-brand-800"
+          >← К разделам</RouterLink
+        >
         <h1 class="mt-2 text-3xl font-semibold text-slate-900">Заявки: {{ siteStore.currentSite?.name || 'Сайт' }}</h1>
         <p class="mt-2 text-slate-500">Входящие заявки с публичного сайта.</p>
       </div>
@@ -91,7 +93,6 @@ onMounted(load)
 
     <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:p-6">
       <p v-if="leadsStore.loading" class="text-sm text-slate-500">Загрузка заявок...</p>
-
       <p v-else-if="leads.length === 0" class="text-sm text-slate-500">Пока нет заявок.</p>
 
       <div v-else class="overflow-x-auto">

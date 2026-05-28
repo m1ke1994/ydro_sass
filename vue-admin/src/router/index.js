@@ -2,6 +2,7 @@
 
 import AdminLayout from '../layouts/AdminLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
+import AnalyticsView from '../views/AnalyticsView.vue'
 import LoginView from '../views/LoginView.vue'
 import LeadsView from '../views/LeadsView.vue'
 import SectionEditView from '../views/SectionEditView.vue'
@@ -22,6 +23,7 @@ const routes = [
       { path: '', redirect: { name: 'dashboard' } },
       { path: 'dashboard', name: 'dashboard', component: DashboardView },
       { path: 'sites/:siteId/sections', name: 'sections', component: SectionsView, props: true },
+      { path: 'sites/:siteId/analytics', name: 'analytics', component: AnalyticsView, props: true },
       { path: 'sites/:siteId/leads', name: 'leads', component: LeadsView, props: true },
       {
         path: 'sites/:siteId/sections/:sectionId',
