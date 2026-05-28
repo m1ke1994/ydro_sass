@@ -43,6 +43,14 @@ INSTALLED_APPS = [
     "apps.analytics",
     "apps.sites",
     "apps.mediafiles",
+    "clients",
+    "leads",
+    "analytics_app",
+    "tracker",
+    "seo_audit",
+    "reports",
+    "subscriptions",
+    "telegram_logs",
 ]
 
 MIDDLEWARE = [
@@ -129,6 +137,15 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
         "rest_framework.parsers.FormParser",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "public_lead": env("RATE_LIMIT_PUBLIC_LEAD", "60/minute"),
+        "public_event": env("RATE_LIMIT_PUBLIC_EVENT", "120/minute"),
+        "public_analytics_event": env("RATE_LIMIT_PUBLIC_ANALYTICS_EVENT", "300/minute"),
+        "public_telegram_webhook": env("RATE_LIMIT_PUBLIC_TELEGRAM_WEBHOOK", "120/minute"),
+    },
 }
 
 SIMPLE_JWT = {
@@ -176,5 +193,42 @@ DEFAULT_CSRF_TRUSTED_ORIGINS = [
 CSRF_TRUSTED_ORIGINS = env_csv("CSRF_TRUSTED_ORIGINS", ",".join(DEFAULT_CSRF_TRUSTED_ORIGINS))
 
 SITE_BASE_URL = env("SITE_BASE_URL", "http://localhost:8000")
+
+PUBLIC_BASE_URL = env("PUBLIC_BASE_URL", SITE_BASE_URL).rstrip("/")
+FRONTEND_URL = env("FRONTEND_URL", "").rstrip("/")
+TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", "").lstrip("@")
+TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", "")
+TELEGRAM_USE_WEBHOOK = env_bool("TELEGRAM_USE_WEBHOOK", False)
+
+YOOKASSA_SHOP_ID = env("YOOKASSA_SHOP_ID", "")
+YOOKASSA_SECRET_KEY = env("YOOKASSA_SECRET_KEY", "")
+YOOKASSA_RETURN_URL = env("YOOKASSA_RETURN_URL", f"{SITE_BASE_URL}/dashboard")
+PAYMENT_RETURN_URL = env("PAYMENT_RETURN_URL", YOOKASSA_RETURN_URL)
+PAYMENT_CHECKOUT_URL = env("PAYMENT_CHECKOUT_URL", "")
+
+OPENAI_API_KEY = env("OPENAI_API_KEY", "").strip()
+OPENAI_MODEL_SEO = env("OPENAI_MODEL_SEO", "gpt-5-mini").strip() or "gpt-5-mini"
+OPENAI_MODEL_CONVERSION = env("OPENAI_MODEL_CONVERSION", "gpt-5-mini").strip() or "gpt-5-mini"
+AI_RECOMMENDATIONS_ENABLED = env_bool("AI_RECOMMENDATIONS_ENABLED", False)
+AI_RECOMMENDATIONS_TIMEOUT_SECONDS = float(env("AI_RECOMMENDATIONS_TIMEOUT_SECONDS", "20"))
+AI_RECOMMENDATIONS_TTL_SECONDS = int(env("AI_RECOMMENDATIONS_TTL_SECONDS", "10800"))
+AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS = int(env("AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS", "900"))
+AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_SEO = int(
+    env("AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_SEO", "700")
+)
+AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_CONVERSION = int(
+    env("AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_CONVERSION", str(AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS))
+)
+AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_RETRY_CAP = int(
+    env("AI_RECOMMENDATIONS_MAX_OUTPUT_TOKENS_RETRY_CAP", "1200")
+)
+
+AUTHENTICATION_BACKENDS = [
+    "accounts.auth_backends.EmailOrUsernameBackend",
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+REPORTS_STORAGE_DIR = BASE_DIR / "reports_storage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

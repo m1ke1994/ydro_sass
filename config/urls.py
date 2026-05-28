@@ -25,6 +25,7 @@ def api_root(_request):
                 "media": "/api/client/media/",
                 "uploads": "/api/uploads/",
                 "leads": "/api/leads/",
+                "mini": "/api/mini/",
                 "health": "/api/health/",
             },
         }
@@ -41,6 +42,7 @@ urlpatterns = [
     path("api/", api_root),
     path("api/health/", healthcheck),
     path("api/auth/", include("apps.accounts.urls")),
+    path("api/mini/", include("config.mini_urls")),
     path("api/track/", include("apps.analytics.public_urls")),
     path("api/public/", include("apps.sites.public_urls")),
     path("api/sites/<slug:site_slug>/", PublicSiteBundleBySlugView.as_view(), name="public-site-bundle"),

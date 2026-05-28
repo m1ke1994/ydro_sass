@@ -20,6 +20,7 @@ const siteStore = useSiteStore()
 const navItems = computed(() => {
   const items = [
     { label: 'Мои сайты', to: '/dashboard', icon: '⌂' },
+    { label: 'Mini CRM', to: '/mini', icon: '⚙' },
   ]
 
   if (siteStore.currentSiteId) {
