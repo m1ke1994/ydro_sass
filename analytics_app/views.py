@@ -17,11 +17,47 @@ from analytics_app.services.device_stats import get_device_distribution
 from analytics_app.services.local_recommendations import build_behavior_recommendations
 from analytics_app.services.metrics import default_period_days, get_metrics, period_bounds
 from analytics_app.services.report_builder import build_full_report
+from clients.models import Client
 from clients.permissions import HasValidApiKey
 from tracker.models import Visit
 from subscriptions.permissions import HasActiveSubscription
 
 logger = logging.getLogger(__name__)
+
+
+def get_conversion_ai_recommendations(*, client_id, date_from, date_to, force_refresh=False):
+    """
+    Compatibility wrapper for legacy mini_bitrix tests and integrations.
+    Returns local behavior recommendations payload in the previous service shape.
+    """
+    client = Client.objects.get(id=client_id)
+    report = build_full_report(client=client, date_from=date_from, date_to=date_to)
+    summary = report["summary"]
+    payload = {
+        "visit_count": summary["visits"],
+        "visitors_unique": summary["unique_users"],
+        "form_submit_count": summary["forms"],
+        "leads_count": summary["leads"],
+        "conversion": summary["conversion"],
+        "top_sources": [{"source": row["source"], "count": row["visits"]} for row in report["sources"][:5]],
+        "latest_leads": report["leads"][:10],
+        "source_performance": [
+            {
+                "source": row["source"],
+                "visits": row["visits"],
+                "leads": row["leads"],
+                "conversion_pct": row["conversion_pct"],
+            }
+            for row in report["sources"]
+        ],
+        "conversion_by_pages": report["page_conversion"],
+        "top_clicks": report["top_clicks"][:10],
+    }
+    recommendations = build_behavior_recommendations(payload)
+    recommendations.setdefault("source", "local")
+    recommendations.setdefault("success", True)
+    return recommendations
+
 
 def _default_period_days(days=14):
     return default_period_days(days=days)
@@ -215,8 +251,13 @@ class AnalyticsAiRecommendationsView(APIView):
 
     def get(self, request):
         date_from, date_to, from_dt, to_dt = _period_range(request, days=14)
-        summary_payload = _build_summary_payload(client=request.client, from_dt=from_dt, to_dt=to_dt)
-        payload = summary_payload.get("recommendations") or build_behavior_recommendations(summary_payload)
+        force_refresh = str(request.query_params.get("refresh", "")).lower() in {"1", "true", "yes", "on"}
+        payload = get_conversion_ai_recommendations(
+            client_id=request.client.id,
+            date_from=date_from,
+            date_to=date_to,
+            force_refresh=force_refresh,
+        )
         payload["period"] = {"date_from": date_from, "date_to": date_to}
         return Response(payload)
 

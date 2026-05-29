@@ -6,7 +6,6 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import ClientUser
 from clients.models import Client
 from seo_audit.models import SEOIssue, SEOPage, SiteSEOAudit
 from subscriptions.models import Subscription
@@ -21,12 +20,6 @@ class SEOAuditViewsExtendedTests(TestCase):
             password="pass12345",
         )
         self.client_obj = Client.objects.create(owner=self.user, name="SEO Views Client")
-        ClientUser.objects.create(
-            user=self.user,
-            client=self.client_obj,
-            email=self.user.email,
-            is_active=True,
-        )
         Subscription.objects.create(
             client=self.client_obj,
             status=Subscription.Status.ACTIVE,

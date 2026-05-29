@@ -6,7 +6,6 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from accounts.models import ClientUser
 from clients.models import Client
 from subscriptions.models import Subscription
 
@@ -20,12 +19,6 @@ class AnalyticsAiRecommendationsViewTests(TestCase):
             password="pass12345",
         )
         self.client_obj = Client.objects.create(owner=self.user, name="Analytics AI Client")
-        ClientUser.objects.create(
-            user=self.user,
-            client=self.client_obj,
-            email=self.user.email,
-            is_active=True,
-        )
         Subscription.objects.create(
             client=self.client_obj,
             status=Subscription.Status.ACTIVE,

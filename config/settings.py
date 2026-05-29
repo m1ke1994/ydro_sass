@@ -1,5 +1,6 @@
 ﻿from datetime import timedelta
 import os
+import sys
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -38,6 +39,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django_filters",
     "rest_framework",
     "apps.accounts",
     "apps.analytics",
@@ -56,6 +58,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -146,16 +149,22 @@ REST_FRAMEWORK = {
         "public_analytics_event": env("RATE_LIMIT_PUBLIC_ANALYTICS_EVENT", "300/minute"),
         "public_telegram_webhook": env("RATE_LIMIT_PUBLIC_TELEGRAM_WEBHOOK", "120/minute"),
     },
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.OrderingFilter",
+    ],
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=int(env("JWT_ACCESS_MINUTES", "60"))),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=int(env("JWT_REFRESH_DAYS", "7"))),
     "AUTH_HEADER_TYPES": ("Bearer",),
 }
 
 REDIS_URL = env("REDIS_URL", "")
-if REDIS_URL:
+IS_TEST_MODE = "test" in sys.argv
+USE_REDIS_CACHE = bool(REDIS_URL) and not IS_TEST_MODE
+if USE_REDIS_CACHE:
     CACHES = {
         "default": {
             "BACKEND": "django_redis.cache.RedisCache",
@@ -200,6 +209,7 @@ TELEGRAM_BOT_TOKEN = env("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_BOT_USERNAME = env("TELEGRAM_BOT_USERNAME", "").lstrip("@")
 TELEGRAM_WEBHOOK_SECRET = env("TELEGRAM_WEBHOOK_SECRET", "")
 TELEGRAM_USE_WEBHOOK = env_bool("TELEGRAM_USE_WEBHOOK", False)
+TELEGRAM_BIND_TOKEN_MAX_AGE = int(env("TELEGRAM_BIND_TOKEN_MAX_AGE", "3600"))
 
 YOOKASSA_SHOP_ID = env("YOOKASSA_SHOP_ID", "")
 YOOKASSA_SECRET_KEY = env("YOOKASSA_SECRET_KEY", "")
@@ -230,5 +240,24 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 REPORTS_STORAGE_DIR = BASE_DIR / "reports_storage"
+
+CELERY_BROKER_URL = env("REDIS_URL", "redis://redis:6379/1")
+CELERY_RESULT_BACKEND = env("REDIS_URL", "redis://redis:6379/1")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_BEAT_SCHEDULE = {
+    "send_daily_pdf_at_20_msk": {
+        "task": "reports.tasks.send_daily_pdf.send_daily_pdf_task",
+        "schedule": timedelta(hours=24),
+    },
+    "notify_auto_renew_subscriptions_daily": {
+        "task": "subscriptions.tasks.notify_auto_renew_subscriptions_task",
+        "schedule": timedelta(hours=24),
+    },
+}
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

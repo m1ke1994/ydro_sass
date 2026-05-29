@@ -7,6 +7,7 @@ from django.db.models import Prefetch
 from django.http import HttpResponse, JsonResponse
 from django.utils import timezone
 from rest_framework import permissions, status
+from rest_framework.renderers import BaseRenderer
 from rest_framework.views import APIView
 
 from accounts.permissions import IsClientUser
@@ -24,6 +25,20 @@ from seo_audit.services.scoring import (
 from subscriptions.permissions import HasActiveSubscription
 
 logger = logging.getLogger(__name__)
+
+
+class AnyAcceptRenderer(BaseRenderer):
+    media_type = "*/*"
+    format = "any"
+    charset = None
+    render_style = "binary"
+
+    def render(self, data, accepted_media_type=None, renderer_context=None):
+        if data is None:
+            return b""
+        if isinstance(data, (bytes, bytearray)):
+            return bytes(data)
+        return str(data).encode("utf-8")
 
 
 def json_response(data, http_status: int):
@@ -351,6 +366,7 @@ class SEOAuditAiRecommendationsView(APIView):
 
 class SEOAuditExportView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsClientUser, HasActiveSubscription]
+    renderer_classes = [AnyAcceptRenderer]
 
     def get(self, request, audit_id: int):
         audit = SiteSEOAudit.objects.filter(id=audit_id, client=request.client).first()
