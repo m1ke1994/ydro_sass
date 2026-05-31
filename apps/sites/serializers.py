@@ -1,7 +1,14 @@
 ﻿from django.core.exceptions import ValidationError as DjangoValidationError
+import logging
+
+from django.utils import timezone
 from rest_framework import serializers
 
+from leads.services import send_telegram_message
+
 from .models import SectionSchema, Site, SiteLead, SiteSection
+
+logger = logging.getLogger(__name__)
 
 
 class PublicSiteSerializer(serializers.ModelSerializer):
@@ -218,6 +225,7 @@ class PublicLeadCreateSerializer(serializers.Serializer):
             ip_address=self._extract_ip(meta),
             payload=validated_data.get("payload", {}),
         )
+        self._send_site_lead_telegram_notification(site=site, lead=lead)
         return lead
 
     @staticmethod
@@ -226,6 +234,33 @@ class PublicLeadCreateSerializer(serializers.Serializer):
         if x_forwarded_for:
             return x_forwarded_for.split(",")[0].strip()
         return meta.get("REMOTE_ADDR")
+
+    def _send_site_lead_telegram_notification(self, *, site: Site, lead: SiteLead) -> None:
+        owner = getattr(site, "owner", None)
+        client = getattr(owner, "client", None)
+        if client is None or not client.send_to_telegram or not client.telegram_chat_id:
+            return
+
+        source_value = lead.source_url or "не указано"
+        message_lines = [
+            "Новая заявка с сайта",
+            "",
+            f"Сайт: {site.name}",
+            f"Имя: {lead.name or 'не указано'}",
+            f"Телефон: {lead.phone or 'не указано'}",
+            f"Email: {lead.email or 'не указано'}",
+            f"Комментарий: {lead.message or 'не указано'}",
+            f"Страница: {source_value}",
+            f"Дата: {timezone.localtime(lead.created_at):%d.%m.%Y %H:%M}",
+        ]
+        delivered = send_telegram_message(client.telegram_chat_id, "\n".join(message_lines))
+        if not delivered:
+            logger.warning(
+                "Failed to send site lead telegram notification site_id=%s lead_id=%s client_id=%s",
+                site.id,
+                lead.id,
+                client.id,
+            )
 
 
 class AdminLeadSerializer(serializers.ModelSerializer):

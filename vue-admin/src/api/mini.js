@@ -50,6 +50,21 @@ export async function miniSaveSettings(payload) {
   return data
 }
 
+export async function miniTelegramStatus() {
+  const { data } = await http.get('/api/mini/client/telegram/')
+  return data
+}
+
+export async function miniTelegramSendTest() {
+  const { data } = await http.post('/api/mini/client/telegram/test/', {})
+  return data
+}
+
+export async function miniTelegramDisconnect() {
+  const { data } = await http.post('/api/mini/client/telegram/disconnect/', {})
+  return data
+}
+
 export async function miniReportDaily() {
   const { data } = await http.get('/api/mini/reports/toggle-daily/')
   return data
@@ -90,8 +105,23 @@ export async function miniSeoLatest(domain) {
   return data
 }
 
+export async function miniSeoAudits(params = {}) {
+  const { data } = await http.get('/api/mini/seo/audits/', { params })
+  return data
+}
+
 export async function miniSeoDetail(auditId) {
   const { data } = await http.get(`/api/mini/seo/${auditId}/`)
+  return data
+}
+
+export async function miniSeoPages(auditId) {
+  const { data } = await http.get(`/api/mini/seo/${auditId}/pages/`)
+  return data
+}
+
+export async function miniSeoIssues(auditId, params = {}) {
+  const { data } = await http.get(`/api/mini/seo/${auditId}/issues/`, { params })
   return data
 }
 
@@ -103,4 +133,9 @@ export async function miniSeoHistory(auditId) {
 export async function miniSeoRecommendations(auditId) {
   const { data } = await http.get(`/api/mini/seo/${auditId}/ai-recommendations/`)
   return data
+}
+
+export async function miniSeoExport(auditId) {
+  const response = await http.get(`/api/mini/seo/${auditId}/export/`, { responseType: 'blob' })
+  return response.data
 }

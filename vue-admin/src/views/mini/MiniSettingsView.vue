@@ -73,7 +73,7 @@ onMounted(loadSettings)
       <p><strong>API key:</strong> {{ data?.api_key || '—' }}</p>
       <p class="mt-2"><strong>Tracker script:</strong></p>
       <pre class="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">{{ data?.public_script_tag || '—' }}</pre>
-      <p class="mt-2"><strong>Telegram connect URL:</strong> {{ data?.telegram_connect_url || '—' }}</p>
+      <p class="mt-2"><strong>Статус Telegram:</strong> {{ data?.telegram_status === 'connected' ? 'подключен' : 'не подключен' }}</p>
     </div>
   </section>
 </template>

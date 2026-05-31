@@ -277,6 +277,33 @@ class SEOAuditLatestView(APIView):
         )
 
 
+class SEOAuditListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsClientUser, HasActiveSubscription]
+
+    def get(self, request):
+        domain = str(request.query_params.get("domain") or "").strip().lower()
+        limit_raw = request.query_params.get("limit")
+        try:
+            limit = max(1, min(int(limit_raw or 20), 100))
+        except (TypeError, ValueError):
+            limit = 20
+
+        audits_qs = SiteSEOAudit.objects.filter(client=request.client).order_by("-created_at")
+        if domain:
+            audits_qs = audits_qs.filter(domain=domain)
+
+        rows = [_serialize_history_item(item) for item in list(audits_qs[:limit])]
+        return json_response(
+            {
+                "ok": True,
+                "domain": domain or None,
+                "count": len(rows),
+                "rows": rows,
+            },
+            http_status=status.HTTP_200_OK,
+        )
+
+
 class SEOAuditDetailView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsClientUser, HasActiveSubscription]
 
@@ -304,6 +331,59 @@ class SEOAuditDetailView(APIView):
         except Exception:
             logger.exception("seo_audit.detail error audit_id=%s client_id=%s", audit_id, getattr(request.client, "id", None))
             return json_response({"detail": "Внутренняя ошибка сервера.", "ok": False}, http_status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class SEOAuditPagesView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsClientUser, HasActiveSubscription]
+
+    def get(self, request, audit_id: int):
+        audit = SiteSEOAudit.objects.filter(id=audit_id, client=request.client).first()
+        if not audit:
+            return json_response({"detail": "Аудит не найден.", "ok": False}, http_status=status.HTTP_404_NOT_FOUND)
+
+        pages = SEOPage.objects.filter(audit=audit).order_by("url", "id")
+        payload = SEOPageSerializer(pages, many=True).data
+        return json_response(
+            {
+                "ok": True,
+                "audit_id": audit.id,
+                "domain": audit.domain,
+                "count": len(payload),
+                "rows": payload,
+            },
+            http_status=status.HTTP_200_OK,
+        )
+
+
+class SEOAuditIssuesView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsClientUser, HasActiveSubscription]
+
+    def get(self, request, audit_id: int):
+        audit = SiteSEOAudit.objects.filter(id=audit_id, client=request.client).first()
+        if not audit:
+            return json_response({"detail": "Аудит не найден.", "ok": False}, http_status=status.HTTP_404_NOT_FOUND)
+
+        severity = str(request.query_params.get("severity") or "").strip().lower()
+        issues_qs = SEOIssue.objects.filter(page__audit=audit).select_related("page").order_by("page__url", "id")
+        if severity in {
+            SEOIssue.Severity.HIGH,
+            SEOIssue.Severity.MEDIUM,
+            SEOIssue.Severity.LOW,
+        }:
+            issues_qs = issues_qs.filter(severity=severity)
+
+        payload = SEOIssueSerializer(list(issues_qs), many=True).data
+        return json_response(
+            {
+                "ok": True,
+                "audit_id": audit.id,
+                "domain": audit.domain,
+                "severity": severity or "all",
+                "count": len(payload),
+                "rows": payload,
+            },
+            http_status=status.HTTP_200_OK,
+        )
 
 
 class SEOAuditHistoryView(APIView):

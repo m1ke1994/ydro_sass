@@ -1,9 +1,11 @@
 ﻿from django.contrib.auth import get_user_model
 from django.urls import reverse
+from unittest.mock import patch
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.sites.models import Site, SiteLead, SiteSection
+from clients.models import Client
 
 
 class SitesApiTests(APITestCase):
@@ -38,6 +40,13 @@ class SitesApiTests(APITestCase):
             domain="localhost:3000",
             owner=self.other_user,
             is_active=True,
+        )
+        self.owner_client = Client.objects.create(
+            owner=self.user,
+            name=self.site.name,
+            is_active=True,
+            send_to_telegram=True,
+            telegram_chat_id="123456",
         )
 
         self.hero = SiteSection.objects.create(
@@ -180,6 +189,21 @@ class SitesApiTests(APITestCase):
         lead = SiteLead.objects.first()
         self.assertEqual(lead.site_id, self.site.id)
         self.assertEqual(lead.status, SiteLead.Status.NEW)
+
+    @patch("apps.sites.serializers.send_telegram_message", return_value=False)
+    def test_public_lead_is_saved_even_if_telegram_send_fails(self, mocked_telegram):
+        url = reverse("public-leads-create")
+        payload = {
+            "site_slug": self.site.slug,
+            "name": "Иван",
+            "phone": "+79990000000",
+            "message": "Тестовая заявка",
+        }
+        response = self.client.post(url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(SiteLead.objects.count(), 1)
+        mocked_telegram.assert_called_once()
 
     def test_admin_user_sees_only_own_site_leads_and_can_patch_status(self):
         own_lead = SiteLead.objects.create(site=self.site, name="Own", phone="+70000000001")

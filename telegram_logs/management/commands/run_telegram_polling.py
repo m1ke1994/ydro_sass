@@ -1,4 +1,4 @@
-import json
+﻿import json
 import logging
 import os
 import time
@@ -173,7 +173,7 @@ class Command(BaseCommand):
 
         client = resolve_secure_start_payload(payload)
         if client is None:
-            self._send_message(token, chat_id, "Перейдите в панель управления")
+            self._send_message(token, chat_id, "Токен подключения недействителен. Откройте кнопку подключения в Mini CRM ещё раз.")
             return
 
         previous_chat_id = client.telegram_chat_id
@@ -189,7 +189,7 @@ class Command(BaseCommand):
             previous_chat_id,
             client.telegram_chat_id,
         )
-        self._send_message(token, chat_id, "Telegram подключен к вашему аккаунту TrackNode.")
+        self._send_message(token, chat_id, "Telegram успешно подключен к вашему аккаунту Mini CRM.")
 
     def _handle_trial_command(self, token: str, chat_id: int, sender_id: int | None) -> None:
         subscription = None
@@ -236,7 +236,7 @@ class Command(BaseCommand):
 
         link = TelegramLink.objects.filter(telegram_user_id=sender_id).select_related("client").first()
         if link is None:
-            self._send_message(token, chat_id, "Telegram link is not configured.")
+            self._send_message(token, chat_id, "Telegram успешно подключен к вашему аккаунту Mini CRM.")
             return
 
         subscription = Subscription.objects.filter(id=int(subscription_id_raw), client_id=link.client_id).first()
@@ -289,16 +289,15 @@ class Command(BaseCommand):
             logger.error("Telegram polling duplicate start prevented by file lock. pid=%s", os.getpid())
             return
 
-        if not cache.add(lock_key, lock_value, timeout=lock_ttl):
+        while not cache.add(lock_key, lock_value, timeout=lock_ttl):
             current_holder = cache.get(lock_key)
-            logger.error(
-                "Telegram polling redis lock is already held. lock_key=%s holder=%s current_pid=%s",
+            logger.warning(
+                "Telegram polling redis lock is already held. Waiting for release. lock_key=%s holder=%s current_pid=%s",
                 lock_key,
                 current_holder,
                 os.getpid(),
             )
-            self._release_file_lock(file_lock_fd)
-            return
+            time.sleep(max(1.0, sleep_seconds))
         logger.info("Telegram polling redis lock acquired. lock_key=%s ttl=%s pid=%s", lock_key, lock_ttl, os.getpid())
 
         try:
@@ -308,18 +307,18 @@ class Command(BaseCommand):
                 logger.info("Telegram deleteWebhook executed with drop_pending_updates=True. pid=%s", os.getpid())
             except requests.RequestException:
                 logger.exception("Failed to disable Telegram webhook before polling start. pid=%s", os.getpid())
-                return
+                logger.warning("Continue polling mode startup despite deleteWebhook error. pid=%s", os.getpid())
 
             webhook_info = self._log_webhook_info(token)
             webhook_url = (webhook_info.get("url") or "").strip() if isinstance(webhook_info, dict) else ""
             if webhook_url:
-                logger.error(
-                    "Telegram webhook remains enabled after deleteWebhook. polling aborted to avoid 409. webhook_url=%r pid=%s",
+                logger.warning(
+                    "Telegram webhook remains enabled after deleteWebhook. Polling will continue and retry on conflict. webhook_url=%r pid=%s",
                     webhook_url,
                     os.getpid(),
                 )
-                return
-            logger.info("Telegram webhook is disabled. Polling can start. pid=%s", os.getpid())
+            else:
+                logger.info("Telegram webhook is disabled. Polling can start. pid=%s", os.getpid())
 
             offset = options.get("offset")
             if offset is None:
@@ -431,3 +430,4 @@ class Command(BaseCommand):
                 cache.delete(lock_key)
                 logger.info("Telegram polling redis lock released. lock_key=%s pid=%s", lock_key, os.getpid())
             self._release_file_lock(file_lock_fd)
+

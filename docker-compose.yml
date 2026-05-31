@@ -47,6 +47,7 @@
       POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379/1
       SITE_BASE_URL: http://localhost:8000
+      RUN_SEED_DEMO_DATA: 0
     depends_on:
       postgres:
         condition: service_healthy
@@ -78,6 +79,9 @@
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379/1
+      RUN_MIGRATIONS: 0
+      RUN_COLLECTSTATIC: 0
+      RUN_SEED_DEMO_DATA: 0
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,12 +103,41 @@
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
       REDIS_URL: redis://redis:6379/1
+      RUN_MIGRATIONS: 0
+      RUN_COLLECTSTATIC: 0
+      RUN_SEED_DEMO_DATA: 0
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     command: celery -A config beat -l INFO
+    networks:
+      - yadro_network
+
+  telegram_polling:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_ENGINE: postgres
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379/1
+      RUN_MIGRATIONS: 0
+      RUN_COLLECTSTATIC: 0
+      RUN_SEED_DEMO_DATA: 0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    command: python manage.py run_telegram_polling
     networks:
       - yadro_network
 

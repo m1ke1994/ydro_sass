@@ -7,7 +7,7 @@ class IsClientUser(permissions.BasePermission):
     message = "Client dashboard access is available only for active client users."
 
     def has_permission(self, request, view):
-        has_access, client = can_access_client_dashboard(request.user)
+        has_access, client = can_access_client_dashboard(request.user, request=request)
         if not has_access or client is None:
             return False
 

@@ -13,7 +13,7 @@ def send_pdf_to_client_telegram(*, client, filename: str, pdf_bytes: bytes):
 
     response = requests.post(
         f"https://api.telegram.org/bot{token}/sendDocument",
-        data={"chat_id": chat_id, "caption": "PDF отчёт TrackNode"},
+        data={"chat_id": chat_id, "caption": "Ежедневный PDF-отчёт Yadro Mini CRM"},
         files={"document": (filename, pdf_bytes, "application/pdf")},
         timeout=30,
     )

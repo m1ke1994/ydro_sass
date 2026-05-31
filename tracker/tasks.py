@@ -67,14 +67,14 @@ def send_tracker_form_submit_notification_task(event_id: int, client_id: int) ->
     safe_method = _escape_html(form_method)
 
     message = (
-        f"📥 <b>Новый лид</b>\n\n"
-        f"🌐 <b>Сайт:</b> <code>{safe_site}</code>\n"
-        f"📄 <b>Страница:</b> <code>{safe_page}</code>\n"
-        f"🕒 <b>Время:</b> {safe_timestamp}\n"
-        f"⚙️ <b>Метод:</b> {safe_method}\n\n"
-        f"🧾 <b>Форма:</b>\n"
+        f"<b>Новая заявка (форма на сайте)</b>\n\n"
+        f"<b>Сайт:</b> <code>{safe_site}</code>\n"
+        f"<b>Страница:</b> <code>{safe_page}</code>\n"
+        f"<b>Дата:</b> {safe_timestamp}\n"
+        f"<b>Метод:</b> {safe_method}\n\n"
+        f"<b>Форма:</b>\n"
         f"{safe_form}\n\n"
-        f"ℹ️ <i>Для подробной информации зайдите в админ-панель сайта.</i>"
+        f"<i>Подробности доступны в Mini CRM.</i>"
     )
 
     try:

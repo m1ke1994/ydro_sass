@@ -14,6 +14,11 @@ from analytics_app.views import (
     PublicEventCreateView,
 )
 from clients.views import ClientSettingsView, tracker_js_view
+from clients.telegram_views import (
+    TelegramIntegrationDisconnectView,
+    TelegramIntegrationSendTestView,
+    TelegramIntegrationStatusView,
+)
 from leads.views import LeadViewSet, PublicLeadCreateView
 from subscriptions.views import YooKassaWebhookView
 from telegram_logs.views import TelegramWebhookView
@@ -46,5 +51,8 @@ urlpatterns = [
     path("subscription/", include("subscriptions.urls")),
     path("settings/", ClientSettingsView.as_view(), name="mini_settings"),
     path("client/settings/", ClientSettingsView.as_view(), name="mini_client_settings"),
+    path("client/telegram/", TelegramIntegrationStatusView.as_view(), name="mini_client_telegram_status"),
+    path("client/telegram/test/", TelegramIntegrationSendTestView.as_view(), name="mini_client_telegram_test"),
+    path("client/telegram/disconnect/", TelegramIntegrationDisconnectView.as_view(), name="mini_client_telegram_disconnect"),
     path("", include(router.urls)),
 ]

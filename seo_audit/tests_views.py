@@ -129,6 +129,28 @@ class SEOAuditViewsExtendedTests(TestCase):
         self.assertEqual(payload["rows"][0]["audit_id"], old_audit.id)
         self.assertEqual(payload["default_compare_audit_id"], old_audit.id)
 
+    def test_audits_list_pages_and_issues_endpoints(self):
+        audit = self._create_done_audit(
+            domain="list.example.com",
+            has_robots=True,
+            has_sitemap=True,
+            issue_type="missing_description",
+            severity=SEOIssue.Severity.MEDIUM,
+        )
+
+        list_response = self.http.get("/api/seo/audits/")
+        self.assertEqual(list_response.status_code, 200)
+        self.assertEqual(list_response.json()["rows"][0]["audit_id"], audit.id)
+
+        pages_response = self.http.get(f"/api/seo/{audit.id}/pages/")
+        self.assertEqual(pages_response.status_code, 200)
+        self.assertGreaterEqual(pages_response.json()["count"], 1)
+
+        issues_response = self.http.get(f"/api/seo/{audit.id}/issues/?severity=medium")
+        self.assertEqual(issues_response.status_code, 200)
+        self.assertEqual(issues_response.json()["severity"], "medium")
+        self.assertGreaterEqual(issues_response.json()["count"], 1)
+
     def test_compare_endpoint_returns_stub_when_previous_is_missing(self):
         audit = self._create_done_audit(
             domain="single-compare.example.com",

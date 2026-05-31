@@ -164,6 +164,66 @@ class SEOCrawlerServiceTests(TestCase):
         self.assertIsInstance(home_page.commercial_signals_payload, dict)
         self.assertIn("conversion_signals", home_page.commercial_signals_payload)
 
+    def test_crawler_falls_back_to_internal_links_without_sitemap(self):
+        audit = SiteSEOAudit.objects.create(client=self.client_obj, domain="example.com")
+        pages = {
+            "https://example.com/": _FakeResponse(
+                url="https://example.com/",
+                text="""
+                <html>
+                  <head><title>Main page for fallback crawl</title></head>
+                  <body>
+                    <h1>Main</h1>
+                    <a href="/about">About</a>
+                  </body>
+                </html>
+                """,
+            ),
+            "https://example.com/about": _FakeResponse(
+                url="https://example.com/about",
+                text="""
+                <html>
+                  <head><title>About fallback page title</title></head>
+                  <body><h1>About</h1></body>
+                </html>
+                """,
+            ),
+            "https://example.com/robots.txt": _FakeResponse(
+                url="https://example.com/robots.txt",
+                status_code=404,
+                headers={"Content-Type": "text/plain; charset=utf-8"},
+                text="",
+            ),
+            "https://example.com/sitemap.xml": _FakeResponse(
+                url="https://example.com/sitemap.xml",
+                status_code=404,
+                headers={"Content-Type": "text/plain; charset=utf-8"},
+                text="",
+            ),
+        }
+
+        def fake_get(*args, **kwargs):
+            url = args[0] if args else kwargs.get("url")
+            if url is None and len(args) >= 2:
+                url = args[1]
+            normalized = str(url).rstrip("/") or str(url)
+            if str(url) == "https://example.com/":
+                normalized = "https://example.com/"
+            if normalized not in pages:
+                raise AssertionError(f"Unexpected URL requested: {url}")
+            return pages[normalized]
+
+        with patch("seo_audit.services.crawler.requests.Session.get", side_effect=fake_get):
+            crawl_site_audit(audit)
+
+        audit.refresh_from_db()
+        self.assertFalse(audit.used_sitemap)
+        self.assertFalse(audit.has_sitemap_xml)
+        self.assertTrue(SEOPage.objects.filter(audit=audit, url="https://example.com/about").exists())
+        self.assertTrue(
+            SEOIssue.objects.filter(page__audit=audit, issue_type__in=["missing_sitemap", "bad_sitemap_status"]).exists()
+        )
+
     def test_commercial_signals_detect_messenger_conversion_without_form(self):
         soup = BeautifulSoup(
             """

@@ -32,9 +32,21 @@ else:
     raise SystemExit("PostgreSQL did not become ready in time")
 PY
 
-python manage.py migrate --noinput
-python manage.py collectstatic --noinput
-python manage.py seed_demo_data
+if [ "${RUN_MIGRATIONS:-1}" = "1" ]; then
+  python manage.py migrate --noinput
+fi
+
+if [ "${RUN_COLLECTSTATIC:-1}" = "1" ]; then
+  python manage.py collectstatic --noinput
+fi
+
+if [ "${RUN_SEED_DEMO_DATA:-1}" = "1" ]; then
+  python manage.py seed_demo_data
+fi
+
+if [ "$#" -gt 0 ]; then
+  exec "$@"
+fi
 
 exec gunicorn config.wsgi:application \
   --bind 0.0.0.0:8000 \

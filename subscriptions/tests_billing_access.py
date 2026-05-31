@@ -56,3 +56,18 @@ class BillingAccessTests(TestCase):
         api.force_authenticate(user=self.user)
         response = api.get("/api/mini/leads/")
         self.assertEqual(response.status_code, 402)
+
+    @override_settings(ENABLE_BILLING=False)
+    def test_superuser_can_access_client_endpoints_with_client_switch(self):
+        user_model = get_user_model()
+        superuser = user_model.objects.create_superuser(
+            username="billing-admin",
+            email="billing-admin@example.com",
+            password="test-pass-123",
+        )
+        api = APIClient()
+        api.force_authenticate(user=superuser)
+        response = api.get(f"/api/mini/client/settings/?client_id={self.client_obj.id}")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["id"], self.client_obj.id)

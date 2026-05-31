@@ -11,6 +11,7 @@ from user_agents import parse as parse_user_agent
 from analytics_app.models import ClickEvent as AnalyticsClickEvent
 from analytics_app.models import Event as AnalyticsEvent
 from analytics_app.models import PageView as AnalyticsPageView
+from apps.sites.models import Site as CoreSite
 from clients.models import Client
 from tracker.models import Event, PageView, Site, Visit
 from tracker.serializers import (
@@ -72,11 +73,42 @@ def _site_by_token(token: str):
     legacy_client = Client.objects.filter(api_key=token, is_active=True).first()
     if legacy_client:
         return Site.objects.create(token=token, domain=legacy_client.name, is_active=True)
+
+    # Yadro site compatibility path: use public site api_key as tracker token.
+    core_site = CoreSite.objects.filter(api_key=token, is_active=True).first()
+    if core_site:
+        tracker_site = Site.objects.filter(token=token).first()
+        domain_value = core_site.domain or core_site.slug or core_site.name
+        if tracker_site is None:
+            return Site.objects.create(token=token, domain=domain_value, is_active=True)
+
+        update_fields = []
+        if not tracker_site.is_active:
+            tracker_site.is_active = True
+            update_fields.append("is_active")
+        if domain_value and tracker_site.domain != domain_value:
+            tracker_site.domain = domain_value
+            update_fields.append("domain")
+        if update_fields:
+            tracker_site.save(update_fields=update_fields)
+        return tracker_site
     return None
 
 
 def _client_by_token(token: str):
-    return Client.objects.filter(api_key=token, is_active=True).first()
+    client = Client.objects.filter(api_key=token, is_active=True).first()
+    if client is not None:
+        return client
+
+    core_site = CoreSite.objects.select_related("owner").filter(api_key=token, is_active=True).first()
+    if core_site is None:
+        return None
+
+    owner = getattr(core_site, "owner", None)
+    site_client = getattr(owner, "client", None)
+    if site_client is not None and site_client.is_active:
+        return site_client
+    return None
 
 
 def _safe_url(value: str, fallback: str = "https://tracker.local/") -> str:

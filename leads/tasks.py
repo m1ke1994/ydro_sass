@@ -20,35 +20,23 @@ def send_lead_notification_task(lead_id: int) -> None:
     local_created_at = timezone.localtime(lead.created_at)
     source_value = lead.source_url or lead.utm_source or lead.utm_campaign or "не указано"
 
-    name_value = (lead.name or "").strip()
-    if not name_value or name_value.lower() == "unknown":
+    name_value = (lead.name or "").strip() or "не указано"
+    if name_value.lower() == "unknown":
         name_value = "не указано"
 
+    phone_value = normalize_phone(lead.phone) or "не указано"
+    email_value = (lead.email or "").strip() or "не указано"
+    message_value = (lead.message or "").strip() or "не указано"
+
     message_lines = [
-        "🔔 Новая заявка с сайта",
+        "Новая заявка с сайта",
         "",
-        f"Сайт (владелец): {client.name}",
-        f"Источник: {source_value}",
-        f"Время: {local_created_at.strftime('%d.%m.%Y %H:%M (%Z)')}",
-        "",
-        "👤 Данные пользователя:",
+        f"Сайт: {client.name}",
         f"Имя: {name_value}",
+        f"Телефон: {phone_value}",
+        f"Email: {email_value}",
+        f"Комментарий: {message_value}",
+        f"Страница: {source_value}",
+        f"Дата: {local_created_at.strftime('%d.%m.%Y %H:%M')}",
     ]
-
-    phone_value = normalize_phone(lead.phone)
-    if phone_value:
-        message_lines.append(f"Телефон: {phone_value}")
-
-    email_value = (lead.email or "").strip()
-    if email_value:
-        message_lines.append(f"Email: {email_value}")
-
-    message_lines.extend(
-        [
-            "",
-            "💬 Сообщение:",
-            (lead.message or "не указано"),
-        ]
-    )
-
     send_telegram_message(client.telegram_chat_id, "\n".join(message_lines))
