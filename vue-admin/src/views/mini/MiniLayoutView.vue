@@ -11,6 +11,8 @@ const error = ref('')
 
 const isActive = computed(() => status.value?.status === 'active')
 const isTrial = computed(() => Boolean(status.value?.is_trial))
+const billingEnabled = computed(() => Boolean(status.value?.billing_enabled))
+const showBillingWarning = computed(() => billingEnabled.value && !isActive.value)
 
 async function loadSubscription() {
   loading.value = true
@@ -66,7 +68,7 @@ onMounted(loadSubscription)
       Проверяем подписку...
     </div>
 
-    <div v-else-if="!isActive" class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+    <div v-else-if="showBillingWarning" class="rounded-2xl border border-amber-200 bg-amber-50 p-4">
       <p class="text-sm font-medium text-amber-900">Подписка не активна.</p>
       <p class="mt-1 text-sm text-amber-800">Для доступа к аналитике, SEO и отчётам нужна активная подписка.</p>
       <button

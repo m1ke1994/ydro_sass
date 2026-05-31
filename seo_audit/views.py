@@ -222,7 +222,16 @@ class SEOAuditStartView(APIView):
         )
         from seo_audit.tasks import run_site_audit_task
 
-        run_site_audit_task.delay(audit.id)
+        queued = True
+        try:
+            run_site_audit_task.delay(audit.id)
+        except Exception:
+            queued = False
+            logger.exception(
+                "seo_audit.start failed to enqueue task audit_id=%s client_id=%s",
+                audit.id,
+                request.client.id,
+            )
         logger.info("seo_audit.start created audit_id=%s client_id=%s domain=%s", audit.id, request.client.id, audit.domain)
         return json_response(
             {
@@ -230,6 +239,7 @@ class SEOAuditStartView(APIView):
                 "audit_id": audit.id,
                 "status": audit.status,
                 "domain": audit.domain,
+                "queued": queued,
             },
             http_status=status.HTTP_201_CREATED,
         )

@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.serializers import RegisterResponseSerializer, RegisterSerializer
+from subscriptions.access import can_access_client_dashboard
 
 logger = logging.getLogger(__name__)
 
@@ -76,8 +77,8 @@ class LoginView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        client = getattr(user, "client", None)
-        if client is None or not client.is_active:
+        has_dashboard_access, client = can_access_client_dashboard(user)
+        if not has_dashboard_access or client is None:
             logger.warning("Login failed: inactive client for email=%s", email)
             return Response(
                 _format_errors({"non_field_errors": ["Client cabinet access is disabled."]}),

@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import IsClientUser
+from subscriptions.access import billing_is_enabled
 from subscriptions.models import Subscription, SubscriptionPayment, SubscriptionPlan
 from subscriptions.serializers import CreatePaymentSerializer, SubscriptionPlanSerializer
 from subscriptions.services import (
@@ -83,6 +84,7 @@ class SubscriptionStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        billing_enabled = billing_is_enabled()
         client = getattr(request.user, "client", None)
         if client is None:
             return Response(
@@ -91,6 +93,7 @@ class SubscriptionStatusView(APIView):
                     "client_id": None,
                     "paid_until": None,
                     "is_trial": False,
+                    "billing_enabled": billing_enabled,
                 },
                 status=status.HTTP_200_OK,
             )
@@ -105,57 +108,58 @@ class SubscriptionStatusView(APIView):
                 auto_renew=True,
             )
 
-        pending_payment = (
-            SubscriptionPayment.objects
-            .filter(client=client, status=SubscriptionPayment.Status.PENDING)
-            .exclude(yookassa_payment_id__startswith="pending-")
-            .order_by("-created_at")
-            .first()
-        )
-        if pending_payment is not None:
-            logger.info(
-                "Subscription status fallback check start payment_id=%s client_id=%s",
-                pending_payment.id,
-                client.id,
+        if billing_enabled:
+            pending_payment = (
+                SubscriptionPayment.objects
+                .filter(client=client, status=SubscriptionPayment.Status.PENDING)
+                .exclude(yookassa_payment_id__startswith="pending-")
+                .order_by("-created_at")
+                .first()
             )
-            try:
-                provider_status = refresh_payment_status(pending_payment)
+            if pending_payment is not None:
                 logger.info(
-                    "Subscription status fallback provider check payment_id=%s client_id=%s provider_status=%s",
-                    pending_payment.id,
-                    client.id,
-                    provider_status,
-                )
-                if provider_status == SubscriptionPayment.Status.SUCCEEDED:
-                    activated = activate_subscription_from_payment(pending_payment)
-                    if activated and activated.plan and activated.paid_until:
-                        notify_subscription_activated(
-                            client=activated.client,
-                            plan=activated.plan,
-                            paid_until=activated.paid_until,
-                        )
-                        subscription = activated
-                        logger.info(
-                            "Subscription status fallback activation succeeded payment_id=%s client_id=%s",
-                            pending_payment.id,
-                            client.id,
-                        )
-                    elif activated:
-                        subscription = activated
-            except Exception:
-                logger.exception(
-                    "Subscription status fallback activation failed payment_id=%s client_id=%s",
+                    "Subscription status fallback check start payment_id=%s client_id=%s",
                     pending_payment.id,
                     client.id,
                 )
+                try:
+                    provider_status = refresh_payment_status(pending_payment)
+                    logger.info(
+                        "Subscription status fallback provider check payment_id=%s client_id=%s provider_status=%s",
+                        pending_payment.id,
+                        client.id,
+                        provider_status,
+                    )
+                    if provider_status == SubscriptionPayment.Status.SUCCEEDED:
+                        activated = activate_subscription_from_payment(pending_payment)
+                        if activated and activated.plan and activated.paid_until:
+                            notify_subscription_activated(
+                                client=activated.client,
+                                plan=activated.plan,
+                                paid_until=activated.paid_until,
+                            )
+                            subscription = activated
+                            logger.info(
+                                "Subscription status fallback activation succeeded payment_id=%s client_id=%s",
+                                pending_payment.id,
+                                client.id,
+                            )
+                        elif activated:
+                            subscription = activated
+                except Exception:
+                    logger.exception(
+                        "Subscription status fallback activation failed payment_id=%s client_id=%s",
+                        pending_payment.id,
+                        client.id,
+                    )
 
-        if (
-            subscription.status == Subscription.Status.ACTIVE
-            and subscription.paid_until
-            and subscription.paid_until <= timezone.now()
-        ):
-            subscription.status = Subscription.Status.EXPIRED
-            subscription.save(update_fields=["status", "updated_at"])
+            if (
+                subscription.status == Subscription.Status.ACTIVE
+                and subscription.paid_until
+                and subscription.paid_until <= timezone.now()
+            ):
+                subscription.status = Subscription.Status.EXPIRED
+                subscription.save(update_fields=["status", "updated_at"])
 
         return Response(
             {
@@ -163,6 +167,7 @@ class SubscriptionStatusView(APIView):
                 "client_id": client.id,
                 "paid_until": subscription.paid_until,
                 "is_trial": subscription.is_trial,
+                "billing_enabled": billing_enabled,
             },
             status=status.HTTP_200_OK,
         )

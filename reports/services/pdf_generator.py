@@ -20,11 +20,15 @@ FONT_BOLD = "TrackNodeBold"
 FONT_REGULAR_CANDIDATES = [
     Path(settings.BASE_DIR) / "static" / "fonts" / "DejaVuSans.ttf",
     Path(settings.BASE_DIR) / "static" / "fonts" / "Arial.ttf",
+    Path("C:/Windows/Fonts/arial.ttf"),
+    Path("C:/Windows/Fonts/calibri.ttf"),
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
 ]
 FONT_BOLD_CANDIDATES = [
     Path(settings.BASE_DIR) / "static" / "fonts" / "DejaVuSans-Bold.ttf",
     Path(settings.BASE_DIR) / "static" / "fonts" / "Arial Bold.ttf",
+    Path("C:/Windows/Fonts/arialbd.ttf"),
+    Path("C:/Windows/Fonts/calibrib.ttf"),
     Path("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
 ]
 

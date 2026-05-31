@@ -1,20 +1,7 @@
-from django.utils import timezone
 from rest_framework import permissions
 
+from subscriptions.access import has_active_subscription
 from subscriptions.exceptions import PaymentRequired
-from subscriptions.models import Subscription
-
-
-def has_active_subscription(client) -> bool:
-    if Subscription.objects.filter(client=client, admin_override=True).exists():
-        return True
-
-    subscription = Subscription.objects.filter(
-        client=client,
-        status=Subscription.Status.ACTIVE,
-        paid_until__gt=timezone.now(),
-    ).first()
-    return bool(subscription)
 
 
 class HasActiveSubscription(permissions.BasePermission):

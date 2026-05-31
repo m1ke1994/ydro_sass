@@ -1,9 +1,13 @@
+import logging
+
 from rest_framework import serializers
 
 from analytics_app.models import PageView
 from leads.models import Lead
 from leads.tasks import send_lead_notification_task
 from leads.utils import normalize_phone
+
+logger = logging.getLogger(__name__)
 
 
 class PublicLeadCreateSerializer(serializers.ModelSerializer):
@@ -52,7 +56,14 @@ class PublicLeadCreateSerializer(serializers.ModelSerializer):
             if latest_page_view:
                 latest_page_view.attributed_leads += 1
                 latest_page_view.save(update_fields=["attributed_leads", "updated_at"])
-        send_lead_notification_task.delay(lead.id)
+        try:
+            send_lead_notification_task.delay(lead.id)
+        except Exception:
+            logger.exception(
+                "Failed to enqueue lead notification task. lead_id=%s client_id=%s",
+                lead.id,
+                client.id,
+            )
         return lead
 
 
