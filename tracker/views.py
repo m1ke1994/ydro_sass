@@ -21,7 +21,6 @@ from tracker.serializers import (
     VisitStartSerializer,
 )
 from tracker.services.bot_filter import detect_bot_visit
-from tracker.tasks import send_tracker_form_submit_notification_task
 
 logger = logging.getLogger(__name__)
 
@@ -465,15 +464,6 @@ class EventCreateView(TrackBaseAPIView):
                     client.id,
                 )
 
-            if event_type == "form_submit":
-                try:
-                    send_tracker_form_submit_notification_task.delay(event.id, client.id)
-                except Exception:
-                    logger.exception(
-                        "track.event failed to enqueue telegram form-submit notify event_id=%s client_id=%s",
-                        event.id,
-                        client.id,
-                    )
         logger.info(
             "track.event created event_id=%s visit_id=%s type=%s visitor_id=%s session_id=%s",
             event.id,

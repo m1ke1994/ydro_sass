@@ -1,3 +1,6 @@
+import os
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -36,7 +39,7 @@ class TelegramBindingTests(TestCase):
         self.assertIsNone(resolve_secure_start_payload(payload))
 
     @patch.object(Command, "_send_message")
-    def test_start_command_binds_chat_id_and_creates_link(self, mocked_send_message):
+    def test_start_command_binds_chat_without_automatic_message(self, mocked_send_message):
         payload = build_secure_start_payload(self.client_obj)
         command = Command()
         command._handle_start_command(
@@ -56,4 +59,17 @@ class TelegramBindingTests(TestCase):
                 telegram_chat_id=123456789,
             ).exists()
         )
-        mocked_send_message.assert_called()
+        mocked_send_message.assert_not_called()
+
+    def test_polling_replaces_stale_lock_from_previous_container_process(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lock_file = Path(temp_dir) / "telegram.lock"
+            lock_file.write_text("1", encoding="utf-8")
+            command = Command()
+
+            with self.settings(TELEGRAM_POLLING_LOCK_FILE=str(lock_file)), patch.object(os, "getpid", return_value=1):
+                file_descriptor = command._acquire_file_lock()
+                self.assertIsNotNone(file_descriptor)
+                command._release_file_lock(file_descriptor)
+
+            self.assertFalse(lock_file.exists())

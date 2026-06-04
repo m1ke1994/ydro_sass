@@ -186,7 +186,7 @@ function updateRepeaterCell(index, key, value) {
         :id="inputId"
         :value="modelValue || ''"
         :placeholder="field.placeholder || ''"
-        class="min-h-28 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        class="form-control min-h-28"
         @input="updateText"
       />
     </template>
@@ -197,13 +197,13 @@ function updateRepeaterCell(index, key, value) {
         type="number"
         :value="modelValue"
         :placeholder="field.placeholder || ''"
-        class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        class="form-control"
         @input="updateNumber"
       />
     </template>
 
     <template v-else-if="fieldType === 'boolean'">
-      <label class="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+      <label class="inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
         <input type="checkbox" class="h-4 w-4" :checked="Boolean(modelValue)" @change="updateBoolean" />
         <span class="text-sm text-slate-700">{{ Boolean(modelValue) ? 'Включено' : 'Выключено' }}</span>
       </label>
@@ -213,7 +213,7 @@ function updateRepeaterCell(index, key, value) {
       <select
         :id="inputId"
         :value="modelValue || ''"
-        class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        class="form-control"
         @change="updateText"
       >
         <option value="">Выберите значение</option>
@@ -224,11 +224,11 @@ function updateRepeaterCell(index, key, value) {
     </template>
 
     <template v-else-if="fieldType === 'repeater'">
-      <div class="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+      <div class="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <div
           v-for="(row, index) in repeaterRows"
           :key="`${field.key}-row-${index}`"
-          class="space-y-3 rounded-xl border border-slate-200 bg-white p-3"
+          class="space-y-3 rounded-lg border border-slate-200 bg-white p-3"
         >
           <div class="flex items-center justify-between">
             <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Элемент {{ index + 1 }}</p>
@@ -254,7 +254,7 @@ function updateRepeaterCell(index, key, value) {
 
         <button
           type="button"
-          class="rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          class="action-button-secondary"
           @click="addRow"
         >
           + Добавить элемент
@@ -263,7 +263,7 @@ function updateRepeaterCell(index, key, value) {
     </template>
 
     <template v-else-if="isMediaField">
-      <div class="space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div class="space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
         <input
           :id="inputId"
           ref="fileInputRef"
@@ -280,7 +280,7 @@ function updateRepeaterCell(index, key, value) {
           </div>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-xs text-slate-500">{{ mediaValue }}</p>
+            <p class="text-xs text-slate-500">Изображение загружено</p>
             <div class="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -305,7 +305,7 @@ function updateRepeaterCell(index, key, value) {
         <button
           v-else
           type="button"
-          class="rounded-xl border border-brand-200 bg-white px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50"
+          class="action-button-secondary"
           :disabled="uploading"
           @click="openUploadDialog"
         >
@@ -322,7 +322,7 @@ function updateRepeaterCell(index, key, value) {
         type="text"
         :value="modelValue || ''"
         :placeholder="field.placeholder || ''"
-        class="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-200"
+        class="form-control"
         @input="updateText"
       />
     </template>

@@ -169,7 +169,8 @@ class SitesApiTests(APITestCase):
         self.hero.refresh_from_db()
         self.assertFalse(self.hero.is_active)
 
-    def test_public_can_create_lead(self):
+    @patch("apps.sites.serializers.send_lead_telegram_notification", return_value=True)
+    def test_public_can_create_lead(self, mocked_telegram):
         url = reverse("public-leads-create")
         payload = {
             "site_slug": self.site.slug,
@@ -189,8 +190,58 @@ class SitesApiTests(APITestCase):
         lead = SiteLead.objects.first()
         self.assertEqual(lead.site_id, self.site.id)
         self.assertEqual(lead.status, SiteLead.Status.NEW)
+        mocked_telegram.assert_called_once()
 
-    @patch("apps.sites.serializers.send_telegram_message", return_value=False)
+    def test_get_request_does_not_create_lead(self):
+        response = self.client.get(reverse("public-leads-create"))
+
+        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+        self.assertEqual(SiteLead.objects.count(), 0)
+
+    @patch("leads.services.send_telegram_message", return_value=True)
+    def test_one_site_lead_sends_one_detailed_message_to_its_site_chat(self, mocked_telegram):
+        Client.objects.create(
+            owner=self.other_user,
+            name=self.other_site.name,
+            is_active=True,
+            send_to_telegram=True,
+            telegram_chat_id="other-chat",
+        )
+        response = self.client.post(
+            reverse("public-leads-create"),
+            {
+                "site_slug": self.site.slug,
+                "section_key": "contacts",
+                "form_name": "Форма записи",
+                "name": "Александр",
+                "phone": "+79990000000",
+                "email": "alex@example.com",
+                "message": "Хочу записаться",
+                "source_url": "https://example.com/contact?utm_source=google&utm_medium=cpc&utm_campaign=spring&utm_term=lila&utm_content=hero",
+                "payload": {"source": "google ads"},
+            },
+            format="json",
+            HTTP_USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36",
+            REMOTE_ADDR="203.0.113.10",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        mocked_telegram.assert_called_once()
+        chat_id, message = mocked_telegram.call_args.args
+        self.assertEqual(chat_id, "123456")
+        self.assertIn("Новая заявка с сайта", message)
+        self.assertIn("Сайт: Site One", message)
+        self.assertIn("Домен: localhost:5173", message)
+        self.assertIn("Страница: /contact", message)
+        self.assertIn("Форма: Форма записи", message)
+        self.assertIn("Источник: google ads", message)
+        self.assertIn("UTM term: lila", message)
+        self.assertIn("Устройство: desktop", message)
+        self.assertIn("Браузер: Chrome", message)
+        self.assertIn("ОС: Windows", message)
+        self.assertIn("IP: 203.0.113.10", message)
+
+    @patch("apps.sites.serializers.send_lead_telegram_notification", return_value=False)
     def test_public_lead_is_saved_even_if_telegram_send_fails(self, mocked_telegram):
         url = reverse("public-leads-create")
         payload = {

@@ -2,6 +2,7 @@
 
 import AdminLayout from '../layouts/AdminLayout.vue'
 import DashboardView from '../views/DashboardView.vue'
+import SiteOverviewView from '../views/SiteOverviewView.vue'
 import AnalyticsView from '../views/AnalyticsView.vue'
 import LoginView from '../views/LoginView.vue'
 import LeadsView from '../views/LeadsView.vue'
@@ -29,9 +30,12 @@ const routes = [
     children: [
       { path: '', redirect: { name: 'dashboard' } },
       { path: 'dashboard', name: 'dashboard', component: DashboardView },
+      { path: 'sites/:siteId/overview', name: 'site-overview', component: SiteOverviewView, props: true },
       { path: 'sites/:siteId/sections', name: 'sections', component: SectionsView, props: true },
       { path: 'sites/:siteId/analytics', name: 'analytics', component: AnalyticsView, props: true },
       { path: 'sites/:siteId/leads', name: 'leads', component: LeadsView, props: true },
+      { path: 'sites/:siteId/seo', name: 'site-seo', component: MiniSeoAuditView, props: true },
+      { path: 'sites/:siteId/integration', name: 'site-integration', component: MiniIntegrationView, props: true },
       {
         path: 'mini',
         component: MiniLayoutView,

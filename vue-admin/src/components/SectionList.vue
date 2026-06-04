@@ -1,62 +1,28 @@
-﻿<script setup>
-defineProps({
-  siteId: {
-    type: Number,
-    required: true,
-  },
-  sections: {
-    type: Array,
-    default: () => [],
-  },
-})
+<script setup>
+import { ChevronRight, Image, LayoutTemplate, MessageSquareText, Pencil, Rows3 } from '@lucide/vue'
 
-const iconsByType = {
-  hero: '✦',
-  about: '◉',
-  services: '▦',
-  reviews: '✎',
-  gallery: '▣',
-  contacts: '✆',
-  prices: '◈',
-  footer: '▤',
-}
+defineProps({ siteId: { type: Number, required: true }, sections: { type: Array, default: () => [] } })
 
-function typeIcon(type) {
-  return iconsByType[type] || '◌'
-}
+const icons = { hero: Image, about: MessageSquareText, services: Rows3, reviews: MessageSquareText, gallery: Image }
+function sectionIcon(section) { return icons[section.section_type || section.key] || LayoutTemplate }
 </script>
 
 <template>
-  <div class="space-y-3">
-    <article
-      v-for="section in sections"
-      :key="section.id"
-      class="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft sm:flex-row sm:items-center sm:justify-between"
-    >
-      <div class="flex items-start gap-3">
-        <span class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-100 text-brand-700">
-          {{ typeIcon(section.section_type || section.key) }}
+  <div v-if="sections.length" class="grid gap-3">
+    <article v-for="section in sections" :key="section.id" class="surface flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 items-center gap-3">
+        <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700">
+          <component :is="sectionIcon(section)" :size="21" />
         </span>
-
-        <div>
-          <p class="text-sm font-semibold text-slate-900">{{ section.title }}</p>
-          <p class="text-xs text-slate-500">/{{ section.key }} · {{ section.section_type || section.key }}</p>
+        <div class="min-w-0">
+          <p class="truncate font-semibold text-slate-950">{{ section.title }}</p>
+          <p class="mt-1 text-sm text-slate-500">{{ section.is_active ? 'Виден посетителям сайта' : 'Скрыт от посетителей' }}</p>
         </div>
       </div>
-
-      <div class="flex items-center gap-3 sm:justify-end">
-        <span
-          class="rounded-full px-2.5 py-1 text-xs font-semibold"
-          :class="section.is_active ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'"
-        >
-          {{ section.is_active ? 'Опубликован' : 'Черновик' }}
-        </span>
-
-        <RouterLink
-          :to="`/sites/${siteId}/sections/${section.id}`"
-          class="rounded-xl border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-semibold text-brand-700 transition hover:bg-brand-100"
-        >
-          Редактировать
+      <div class="flex items-center gap-2">
+        <span class="status-badge" :class="section.is_active ? 'status-success' : 'status-neutral'">{{ section.is_active ? 'Опубликован' : 'Скрыт' }}</span>
+        <RouterLink :to="`/sites/${siteId}/sections/${section.id}`" class="action-button-secondary flex-1 sm:flex-none">
+          <Pencil :size="16" /> Изменить <ChevronRight :size="16" />
         </RouterLink>
       </div>
     </article>

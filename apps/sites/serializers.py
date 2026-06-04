@@ -1,10 +1,9 @@
 ﻿from django.core.exceptions import ValidationError as DjangoValidationError
 import logging
 
-from django.utils import timezone
 from rest_framework import serializers
 
-from leads.services import send_telegram_message
+from leads.services import send_lead_telegram_notification
 
 from .models import SectionSchema, Site, SiteLead, SiteSection
 
@@ -209,6 +208,12 @@ class PublicLeadCreateSerializer(serializers.Serializer):
 
         request = self.context.get("request")
         meta = getattr(request, "META", {})
+        payload = validated_data.get("payload", {})
+        if not isinstance(payload, dict):
+            payload = {}
+        payload = dict(payload)
+        if meta.get("HTTP_REFERER") and not payload.get("referrer"):
+            payload["referrer"] = meta["HTTP_REFERER"]
 
         lead = SiteLead.objects.create(
             site=site,
@@ -223,7 +228,7 @@ class PublicLeadCreateSerializer(serializers.Serializer):
             source_url=validated_data.get("source_url", ""),
             user_agent=meta.get("HTTP_USER_AGENT", "")[:1000],
             ip_address=self._extract_ip(meta),
-            payload=validated_data.get("payload", {}),
+            payload=payload,
         )
         self._send_site_lead_telegram_notification(site=site, lead=lead)
         return lead
@@ -236,30 +241,12 @@ class PublicLeadCreateSerializer(serializers.Serializer):
         return meta.get("REMOTE_ADDR")
 
     def _send_site_lead_telegram_notification(self, *, site: Site, lead: SiteLead) -> None:
-        owner = getattr(site, "owner", None)
-        client = getattr(owner, "client", None)
-        if client is None or not client.send_to_telegram or not client.telegram_chat_id:
-            return
-
-        source_value = lead.source_url or "не указано"
-        message_lines = [
-            "Новая заявка с сайта",
-            "",
-            f"Сайт: {site.name}",
-            f"Имя: {lead.name or 'не указано'}",
-            f"Телефон: {lead.phone or 'не указано'}",
-            f"Email: {lead.email or 'не указано'}",
-            f"Комментарий: {lead.message or 'не указано'}",
-            f"Страница: {source_value}",
-            f"Дата: {timezone.localtime(lead.created_at):%d.%m.%Y %H:%M}",
-        ]
-        delivered = send_telegram_message(client.telegram_chat_id, "\n".join(message_lines))
+        delivered = send_lead_telegram_notification(lead, site=site)
         if not delivered:
             logger.warning(
-                "Failed to send site lead telegram notification site_id=%s lead_id=%s client_id=%s",
+                "Site lead telegram notification skipped or failed site_id=%s lead_id=%s",
                 site.id,
                 lead.id,
-                client.id,
             )
 
 

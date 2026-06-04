@@ -1,6 +1,17 @@
-﻿<script setup>
+<script setup>
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
+import {
+  BarChart3,
+  Blocks,
+  CircleGauge,
+  Globe2,
+  Inbox,
+  LayoutDashboard,
+  SearchCheck,
+  Send,
+  X,
+} from '@lucide/vue'
 
 import { useAuthStore } from '../stores/auth'
 import { useSiteStore } from '../stores/site'
@@ -17,101 +28,82 @@ const route = useRoute()
 const authStore = useAuthStore()
 const siteStore = useSiteStore()
 
+const siteId = computed(() => siteStore.currentSiteId)
+const siteLabel = computed(() => siteStore.currentSite?.name || 'Сайт не выбран')
+const userLabel = computed(() => authStore.user?.first_name || authStore.user?.username || 'Пользователь')
+
 const navItems = computed(() => {
-  const items = [
-    { label: 'Мои сайты', to: '/dashboard', icon: '⌂' },
-    { label: 'Mini CRM', to: '/mini', icon: '⚙' },
+  const items = [{ label: 'Мои сайты', to: '/dashboard', icon: LayoutDashboard }]
+  if (!siteId.value) return items
+
+  return [
+    ...items,
+    { label: 'Главная', to: `/sites/${siteId.value}/overview`, icon: CircleGauge },
+    { label: 'Заявки', to: `/sites/${siteId.value}/leads`, icon: Inbox },
+    { label: 'Аналитика', to: `/sites/${siteId.value}/analytics`, icon: BarChart3 },
+    { label: 'Редактирование сайта', to: `/sites/${siteId.value}/sections`, icon: Blocks },
+    { label: 'SEO-аудит', to: `/sites/${siteId.value}/seo`, icon: SearchCheck },
+    { label: 'Telegram', to: `/sites/${siteId.value}/integration`, icon: Send },
   ]
-
-  if (siteStore.currentSiteId) {
-    items.push({
-      label: 'Разделы',
-      to: `/sites/${siteStore.currentSiteId}/sections`,
-      icon: '▦',
-    })
-    items.push({
-      label: 'Аналитика',
-      to: `/sites/${siteStore.currentSiteId}/analytics`,
-      icon: '◔',
-    })
-    items.push({
-      label: 'Заявки',
-      to: `/sites/${siteStore.currentSiteId}/leads`,
-      icon: '✉',
-    })
-  } else {
-    items.push({ label: 'Разделы', disabled: true, icon: '▦' })
-    items.push({ label: 'Аналитика', disabled: true, icon: '◔' })
-    items.push({ label: 'Заявки', disabled: true, icon: '✉' })
-  }
-
-  return items
 })
-
-const userLabel = computed(() => {
-  if (!authStore.user) return 'Пользователь'
-  return authStore.user.first_name || authStore.user.username || 'Пользователь'
-})
-
-const siteLabel = computed(() => siteStore.currentSite?.domain || siteStore.currentSite?.name || 'Сайт не выбран')
 
 function isActive(item) {
-  return item.to && route.path.startsWith(item.to)
+  if (item.to === '/dashboard') return route.path === '/dashboard'
+  return route.path.startsWith(item.to)
 }
 </script>
 
 <template>
   <div>
-    <div
-      class="fixed inset-0 z-30 bg-slate-900/50 lg:hidden"
-      :class="open ? 'block' : 'hidden'"
+    <button
+      v-if="open"
+      type="button"
+      class="fixed inset-0 z-30 bg-slate-950/45 lg:hidden"
+      aria-label="Закрыть меню"
       @click="emit('close')"
     />
 
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-72 flex-col bg-sidebar-gradient p-4 text-slate-200 shadow-2xl transition-transform duration-300"
+      class="fixed inset-y-0 left-0 z-40 flex w-[min(19rem,88vw)] flex-col border-r border-slate-800 bg-slate-950 px-4 py-5 text-slate-200 shadow-2xl transition-transform duration-200 lg:w-64"
       :class="open ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
     >
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs uppercase tracking-[0.2em] text-brand-200/90">Yadro</p>
-        <p class="mt-2 text-lg font-semibold text-white">Панель управления</p>
+      <div class="flex items-center justify-between gap-3 px-2">
+        <div class="flex items-center gap-3">
+          <span class="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-cyan-500 text-slate-950">
+            <Globe2 :size="21" stroke-width="2.2" />
+          </span>
+          <div>
+            <p class="text-lg font-semibold text-white">Yadro</p>
+            <p class="text-xs text-slate-400">Управление сайтом</p>
+          </div>
+        </div>
+        <button type="button" class="icon-button border-slate-700 text-slate-300 lg:hidden" aria-label="Закрыть меню" @click="emit('close')">
+          <X :size="20" />
+        </button>
       </div>
 
-      <div class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4">
-        <p class="text-xs text-slate-300">Текущий сайт</p>
+      <div class="mt-6 rounded-lg border border-slate-800 bg-slate-900 p-3">
+        <p class="text-xs text-slate-400">Выбранный сайт</p>
         <p class="mt-1 truncate text-sm font-semibold text-white">{{ siteLabel }}</p>
       </div>
 
-      <nav class="mt-5 flex-1 space-y-1 overflow-y-auto pr-1">
-        <template v-for="item in navItems" :key="item.label">
-          <RouterLink
-            v-if="!item.disabled"
-            :to="item.to"
-            class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition"
-            :class="isActive(item)
-              ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/35'
-              : 'text-slate-200 hover:bg-white/10 hover:text-white'"
-            @click="emit('close')"
-          >
-            <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/10 text-xs">{{ item.icon }}</span>
-            {{ item.label }}
-          </RouterLink>
-
-          <button
-            v-else
-            type="button"
-            class="flex w-full cursor-not-allowed items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-400"
-            disabled
-          >
-            <span class="inline-flex h-7 w-7 items-center justify-center rounded-lg bg-white/5 text-xs">{{ item.icon }}</span>
-            {{ item.label }}
-          </button>
-        </template>
+      <nav class="mt-5 flex-1 space-y-1 overflow-y-auto">
+        <RouterLink
+          v-for="item in navItems"
+          :key="item.to"
+          :to="item.to"
+          class="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition"
+          :class="isActive(item) ? 'bg-cyan-500 text-slate-950' : 'text-slate-300 hover:bg-slate-900 hover:text-white'"
+          @click="emit('close')"
+        >
+          <component :is="item.icon" :size="19" />
+          <span>{{ item.label }}</span>
+        </RouterLink>
       </nav>
 
-      <div class="rounded-2xl border border-white/10 bg-white/5 p-3">
-        <p class="text-xs text-slate-300">{{ userLabel }}</p>
-        <p class="mt-1 truncate text-sm text-slate-100">{{ authStore.user?.email || 'no-email' }}</p>
+      <div class="border-t border-slate-800 pt-4">
+        <p class="truncate text-sm font-medium text-white">{{ userLabel }}</p>
+        <p class="mt-1 truncate text-xs text-slate-400">{{ authStore.user?.email || '' }}</p>
       </div>
     </aside>
   </div>

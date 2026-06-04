@@ -21,6 +21,8 @@ class Lead(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.NEW, verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата создания")
 
+    notification_context = models.JSONField(default=dict, blank=True, verbose_name="Telegram notification context")
+
     class Meta:
         ordering = ("-created_at",)
         verbose_name = "Заявка"

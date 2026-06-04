@@ -1,330 +1,164 @@
 <script setup>
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { Download, SearchCheck } from '@lucide/vue'
 
-import {
-  miniSeoDetail,
-  miniSeoExport,
-  miniSeoHistory,
-  miniSeoIssues,
-  miniSeoLatest,
-  miniSeoPages,
-  miniSeoRecommendations,
-  miniSeoStart,
-} from '../../api/mini'
+import { miniSeoDetail, miniSeoExport, miniSeoIssues, miniSeoLatest, miniSeoStart } from '../../api/mini'
+import { useSiteStore } from '../../stores/site'
 
+const route = useRoute()
+const siteStore = useSiteStore()
 const domain = ref('')
 const loading = ref(false)
+const downloading = ref(false)
 const error = ref('')
 const latest = ref(null)
 const detail = ref(null)
-const history = ref([])
-const recommendations = ref([])
-const pages = ref([])
 const issues = ref([])
-const severity = ref('all')
-const downloadingPdf = ref(false)
-let pollTimer = null
+let timer = null
 
-const severityOptions = [
-  { value: 'all', label: 'Все' },
-  { value: 'high', label: 'Критичные' },
-  { value: 'medium', label: 'Средние' },
-  { value: 'low', label: 'Низкие' },
-]
+const siteId = computed(() => Number(route.params.siteId || 0))
+const auditId = computed(() => latest.value?.audit_id || detail.value?.audit_id)
+const running = computed(() => ['pending', 'running'].includes(String(detail.value?.status || latest.value?.status || '').toLowerCase()))
+const score = computed(() => Number(detail.value?.score ?? latest.value?.score ?? 0))
 
-const isAuditRunning = computed(() => {
-  const status = String(latest.value?.status || detail.value?.status || '').toLowerCase()
-  return status === 'pending' || status === 'running'
-})
-
-function normalizedDomain() {
-  return domain.value.trim().toLowerCase()
+function statusText() {
+  const status = String(detail.value?.status || latest.value?.status || '').toLowerCase()
+  return { pending: 'Ждет запуска', running: 'Проверяем сайт', done: 'Проверка завершена', completed: 'Проверка завершена', failed: 'Не удалось проверить сайт', error: 'Не удалось проверить сайт' }[status] || 'Проверка не запускалась'
 }
 
-function statusLabel(statusRaw) {
-  const status = String(statusRaw || '').toLowerCase()
-  if (status === 'pending') return 'В очереди'
-  if (status === 'running') return 'Идёт проверка'
-  if (status === 'done' || status === 'completed') return 'Завершён'
-  if (status === 'failed' || status === 'error') return 'Ошибка'
-  if (status === 'stopped') return 'Остановлен'
-  return status || '—'
+function severityInfo(value) {
+  return {
+    high: { label: 'Критично', class: 'status-danger' },
+    medium: { label: 'Важно', class: 'status-warning' },
+    low: { label: 'Рекомендация', class: 'status-neutral' },
+  }[value] || { label: 'Рекомендация', class: 'status-neutral' }
+}
+
+async function loadAudit(id) {
+  detail.value = await miniSeoDetail(id)
+  const result = await miniSeoIssues(id)
+  issues.value = result?.rows || []
 }
 
 function stopPolling() {
-  if (pollTimer) {
-    clearInterval(pollTimer)
-    pollTimer = null
-  }
+  if (timer) clearInterval(timer)
+  timer = null
 }
 
 function startPolling() {
   stopPolling()
-  pollTimer = setInterval(async () => {
-    if (!latest.value?.audit_id) return
+  timer = setInterval(async () => {
     try {
-      const fresh = await miniSeoDetail(latest.value.audit_id)
-      detail.value = fresh
-      if (!isAuditRunning.value) {
-        await reloadIssues()
-        stopPolling()
-      }
-    } catch (_e) {
-      stopPolling()
-    }
+      await loadAudit(auditId.value)
+      if (!running.value) stopPolling()
+    } catch { stopPolling() }
   }, 4000)
 }
 
-async function reloadIssues() {
-  if (!latest.value?.audit_id) {
-    issues.value = []
-    return
-  }
-  const params = severity.value !== 'all' ? { severity: severity.value } : {}
-  const payload = await miniSeoIssues(latest.value.audit_id, params)
-  issues.value = payload?.rows || []
-}
-
-async function loadAudit(auditId) {
-  const [d, h, r, p] = await Promise.all([
-    miniSeoDetail(auditId),
-    miniSeoHistory(auditId),
-    miniSeoRecommendations(auditId),
-    miniSeoPages(auditId),
-  ])
-  detail.value = d
-  history.value = h?.rows || []
-  recommendations.value = r?.items || r?.recommendations || []
-  pages.value = p?.rows || []
-  await reloadIssues()
-}
-
-async function refreshLatest() {
-  const value = normalizedDomain()
-  if (!value) {
-    error.value = 'Введите домен.'
-    return
-  }
-  loading.value = true
-  error.value = ''
+async function findLatest() {
+  if (!domain.value.trim()) { error.value = 'Введите домен сайта.'; return }
+  loading.value = true; error.value = ''
   try {
-    latest.value = await miniSeoLatest(value)
+    latest.value = await miniSeoLatest(domain.value.trim())
     if (latest.value?.audit_id) {
       await loadAudit(latest.value.audit_id)
-      if (isAuditRunning.value) {
-        startPolling()
-      } else {
-        stopPolling()
-      }
+      if (running.value) startPolling()
     }
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось получить последний аудит.'
-  } finally {
-    loading.value = false
-  }
+  } catch (e) { error.value = e?.response?.data?.detail || 'Для этого домена еще нет готовой проверки.' }
+  finally { loading.value = false }
 }
 
 async function startAudit() {
-  const value = normalizedDomain()
-  if (!value) {
-    error.value = 'Введите домен.'
-    return
-  }
-  loading.value = true
-  error.value = ''
+  if (!domain.value.trim()) { error.value = 'Введите домен сайта.'; return }
+  loading.value = true; error.value = ''; issues.value = []
   try {
-    latest.value = await miniSeoStart(value)
+    latest.value = await miniSeoStart(domain.value.trim())
     await loadAudit(latest.value.audit_id)
-    if (isAuditRunning.value) {
-      startPolling()
-    }
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось запустить аудит.'
-  } finally {
-    loading.value = false
-  }
+    if (running.value) startPolling()
+  } catch (e) { error.value = e?.response?.data?.detail || 'Не удалось запустить проверку сайта.' }
+  finally { loading.value = false }
 }
 
 async function downloadPdf() {
-  if (!latest.value?.audit_id || downloadingPdf.value) return
-  downloadingPdf.value = true
-  error.value = ''
+  if (!auditId.value) return
+  downloading.value = true; error.value = ''
   try {
-    const blob = await miniSeoExport(latest.value.audit_id)
+    const blob = await miniSeoExport(auditId.value)
     const href = URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = href
-    link.download = `seo-audit-${latest.value.audit_id}.pdf`
-    document.body.appendChild(link)
-    link.click()
-    link.remove()
+    link.href = href; link.download = `seo-audit-${domain.value}.pdf`; link.click()
     URL.revokeObjectURL(href)
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось скачать PDF-отчёт.'
-  } finally {
-    downloadingPdf.value = false
-  }
+  } catch (e) { error.value = e?.response?.data?.detail || 'Не удалось скачать PDF-отчет.' }
+  finally { downloading.value = false }
 }
 
+onMounted(async () => {
+  if (siteId.value) {
+    siteStore.selectSite(siteId.value)
+    if (!siteStore.currentSite) await siteStore.fetchSite(siteId.value)
+    domain.value = siteStore.currentSite?.domain || ''
+  }
+})
 onUnmounted(stopPolling)
 </script>
 
 <template>
-  <section class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-    <h2 class="text-base font-semibold text-slate-900">SEO-аудит mini</h2>
+  <div class="page-stack">
+    <header class="page-heading">
+      <p class="eyebrow">Проверка сайта</p>
+      <h1>SEO-аудит</h1>
+      <p>Найдите проблемы, которые мешают сайту быть заметнее в поиске.</p>
+    </header>
 
-    <div class="flex flex-wrap gap-2">
-      <input
-        v-model="domain"
-        class="w-full max-w-xs rounded-xl border border-slate-300 px-3 py-2 text-sm"
-        placeholder="example.com"
-      >
-      <button
-        class="rounded-xl border border-slate-300 px-4 py-2 text-sm"
-        :disabled="loading"
-        @click="refreshLatest"
-      >
-        Проверить последний
-      </button>
-      <button
-        class="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70"
-        :disabled="loading"
-        @click="startAudit"
-      >
-        Запустить аудит
-      </button>
-      <button
-        class="rounded-xl border border-slate-300 px-4 py-2 text-sm"
-        :disabled="!latest?.audit_id || downloadingPdf"
-        @click="downloadPdf"
-      >
-        {{ downloadingPdf ? 'Готовим PDF...' : 'Скачать PDF-отчёт' }}
-      </button>
-    </div>
-
-    <p v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
-      {{ error }}
-    </p>
-
-    <div v-if="latest" class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-      <p><strong>Аудит:</strong> #{{ latest.audit_id || '—' }}</p>
-      <p><strong>Статус:</strong> {{ statusLabel(latest.status || detail?.status) }}</p>
-      <p><strong>Домен:</strong> {{ latest.domain || '—' }}</p>
-      <p v-if="isAuditRunning" class="mt-2 text-amber-700">Идёт проверка страниц, подождите...</p>
-    </div>
-
-    <div v-if="detail" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <article class="rounded-xl border border-slate-200 p-3">
-        <p class="text-xs text-slate-500">SEO Score</p>
-        <p class="text-xl font-semibold">{{ detail.score }}</p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-3">
-        <p class="text-xs text-slate-500">Проверено страниц</p>
-        <p class="text-xl font-semibold">{{ detail.pages_count }}</p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-3">
-        <p class="text-xs text-slate-500">Ошибок (high)</p>
-        <p class="text-xl font-semibold">{{ detail.breakdown?.high_issues || 0 }}</p>
-      </article>
-      <article class="rounded-xl border border-slate-200 p-3">
-        <p class="text-xs text-slate-500">Ошибок (medium)</p>
-        <p class="text-xl font-semibold">{{ detail.breakdown?.medium_issues || 0 }}</p>
-      </article>
-    </div>
-
-    <div v-if="recommendations.length" class="rounded-xl border border-slate-200 p-3">
-      <h3 class="mb-2 text-sm font-semibold">Рекомендации</h3>
-      <ul class="list-disc space-y-1 pl-5 text-sm text-slate-700">
-        <li v-for="item in recommendations" :key="item">{{ item }}</li>
-      </ul>
-    </div>
-
-    <div v-if="pages.length" class="rounded-xl border border-slate-200 p-3">
-      <h3 class="mb-2 text-sm font-semibold">Страницы аудита</h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-slate-100 text-left text-slate-500">
-              <th class="px-2 py-2">URL</th>
-              <th class="px-2 py-2">HTTP</th>
-              <th class="px-2 py-2">Title</th>
-              <th class="px-2 py-2">H1</th>
-              <th class="px-2 py-2">TTFB, мс</th>
-              <th class="px-2 py-2">Score</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in pages" :key="row.id" class="border-b border-slate-50">
-              <td class="px-2 py-2">{{ row.url }}</td>
-              <td class="px-2 py-2">{{ row.status_code }}</td>
-              <td class="px-2 py-2">{{ row.title || '—' }}</td>
-              <td class="px-2 py-2">{{ row.h1_count }}</td>
-              <td class="px-2 py-2">{{ row.ttfb_ms }}</td>
-              <td class="px-2 py-2">{{ row.performance_score }}</td>
-            </tr>
-          </tbody>
-        </table>
+    <section class="surface">
+      <label class="text-sm font-semibold text-slate-800" for="seo-domain">Домен сайта</label>
+      <div class="mt-2 flex flex-col gap-2 sm:flex-row">
+        <input id="seo-domain" v-model="domain" class="form-control flex-1" placeholder="example.com">
+        <button type="button" class="action-button-primary" :disabled="loading" @click="startAudit"><SearchCheck :size="18" />{{ loading ? 'Проверяем...' : 'Проверить сайт' }}</button>
+        <button type="button" class="action-button-secondary" :disabled="loading" @click="findLatest">Показать прошлую проверку</button>
       </div>
-    </div>
+    </section>
 
-    <div v-if="latest?.audit_id" class="rounded-xl border border-slate-200 p-3">
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <h3 class="text-sm font-semibold">SEO-проблемы</h3>
-        <select
-          v-model="severity"
-          class="rounded-lg border border-slate-300 px-2 py-1 text-sm"
-          @change="reloadIssues"
-        >
-          <option v-for="option in severityOptions" :key="option.value" :value="option.value">
-            {{ option.label }}
-          </option>
-        </select>
-      </div>
-      <div v-if="issues.length" class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-slate-100 text-left text-slate-500">
-              <th class="px-2 py-2">Серьёзность</th>
-              <th class="px-2 py-2">Страница</th>
-              <th class="px-2 py-2">Проблема</th>
-              <th class="px-2 py-2">Рекомендация</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in issues" :key="row.id" class="border-b border-slate-50">
-              <td class="px-2 py-2">{{ row.severity }}</td>
-              <td class="px-2 py-2">{{ row.page_url }}</td>
-              <td class="px-2 py-2">{{ row.issue_title }}</td>
-              <td class="px-2 py-2">{{ row.recommendation }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <p v-else class="text-sm text-slate-500">Проблем не найдено по выбранному фильтру.</p>
-    </div>
+    <p v-if="error" class="notice-error">{{ error }}</p>
+    <section v-if="running" class="notice-info">Проверяем страницы сайта. Результаты обновятся автоматически.</section>
 
-    <div v-if="history.length" class="rounded-xl border border-slate-200 p-3">
-      <h3 class="mb-2 text-sm font-semibold">История аудитов</h3>
-      <div class="overflow-x-auto">
-        <table class="min-w-full text-sm">
-          <thead>
-            <tr class="border-b border-slate-100 text-left text-slate-500">
-              <th class="px-2 py-2">Аудит</th>
-              <th class="px-2 py-2">Score</th>
-              <th class="px-2 py-2">Страниц</th>
-              <th class="px-2 py-2">Дата</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in history" :key="row.audit_id" class="border-b border-slate-50">
-              <td class="px-2 py-2">{{ row.audit_id }}</td>
-              <td class="px-2 py-2">{{ row.score }}</td>
-              <td class="px-2 py-2">{{ row.pages_count }}</td>
-              <td class="px-2 py-2">{{ row.created_at }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </section>
+    <template v-if="detail || latest">
+      <section class="grid gap-4 sm:grid-cols-[220px_1fr]">
+        <article class="surface flex min-h-44 flex-col items-center justify-center text-center">
+          <p class="text-sm text-slate-500">SEO Score</p>
+          <p class="mt-2 text-5xl font-semibold" :class="score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-rose-600'">{{ score }}</p>
+          <p class="mt-2 text-sm text-slate-600">{{ statusText() }}</p>
+        </article>
+        <article class="surface">
+          <div class="section-heading">
+            <div><h2>Результат проверки</h2><p>Исправляйте проблемы сверху вниз.</p></div>
+            <button type="button" class="action-button-secondary" :disabled="!auditId || downloading" @click="downloadPdf"><Download :size="17" />{{ downloading ? 'Готовим...' : 'Скачать PDF' }}</button>
+          </div>
+          <div class="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <div class="rounded-lg bg-slate-50 p-3"><p class="text-xs text-slate-500">Проверено страниц</p><strong class="mt-1 block text-xl">{{ detail?.pages_count || 0 }}</strong></div>
+            <div class="rounded-lg bg-rose-50 p-3"><p class="text-xs text-rose-600">Критичных проблем</p><strong class="mt-1 block text-xl text-rose-700">{{ detail?.breakdown?.high_issues || 0 }}</strong></div>
+            <div class="rounded-lg bg-amber-50 p-3"><p class="text-xs text-amber-700">Важных проблем</p><strong class="mt-1 block text-xl text-amber-800">{{ detail?.breakdown?.medium_issues || 0 }}</strong></div>
+          </div>
+        </article>
+      </section>
+
+      <section>
+        <div class="section-heading"><div><h2>Найденные проблемы</h2><p>Простые объяснения и рекомендации по исправлению.</p></div></div>
+        <div v-if="issues.length" class="grid gap-3">
+          <article v-for="issue in issues" :key="issue.id" class="surface">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <span class="status-badge" :class="severityInfo(issue.severity).class">{{ severityInfo(issue.severity).label }}</span>
+                <h3 class="mt-3 font-semibold text-slate-950">{{ issue.issue_title || 'Проблема на странице' }}</h3>
+                <p class="mt-2 break-words text-sm text-slate-500">{{ issue.page_url || domain }}</p>
+                <p class="mt-3 text-sm leading-6 text-slate-700">{{ issue.recommendation || 'Проверьте страницу и исправьте найденную проблему.' }}</p>
+              </div>
+            </div>
+          </article>
+        </div>
+        <div v-else class="empty-state"><SearchCheck :size="30" /><h2>Проблем не найдено</h2><p>Или проверка еще выполняется.</p></div>
+      </section>
+    </template>
+  </div>
 </template>

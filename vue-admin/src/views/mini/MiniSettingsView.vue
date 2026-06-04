@@ -46,7 +46,7 @@ onMounted(loadSettings)
 
 <template>
   <section class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-    <h2 class="text-base font-semibold text-slate-900">Настройки mini</h2>
+    <h2 class="text-base font-semibold text-slate-900">Настройки уведомлений</h2>
 
     <p v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{{ error }}</p>
     <p v-if="loading" class="text-sm text-slate-500">Загрузка...</p>
@@ -70,10 +70,8 @@ onMounted(loadSettings)
     </button>
 
     <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-      <p><strong>API key:</strong> {{ data?.api_key || '—' }}</p>
-      <p class="mt-2"><strong>Tracker script:</strong></p>
-      <pre class="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">{{ data?.public_script_tag || '—' }}</pre>
-      <p class="mt-2"><strong>Статус Telegram:</strong> {{ data?.telegram_status === 'connected' ? 'подключен' : 'не подключен' }}</p>
+      <p><strong>Telegram:</strong> {{ data?.telegram_status === 'connected' ? 'подключен' : 'не подключен' }}</p>
+      <p class="mt-1 text-slate-500">Технические параметры подключения скрыты и управляются автоматически.</p>
     </div>
   </section>
 </template>

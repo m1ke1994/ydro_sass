@@ -10,7 +10,180 @@
   }
 
   body {
-    @apply m-0 bg-slate-100 text-slate-900 antialiased;
+    @apply m-0 bg-slate-50 text-slate-900 antialiased;
     font-family: 'Inter', 'Segoe UI', Roboto, Arial, sans-serif;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500 focus-visible:ring-offset-2;
+  }
+}
+
+@layer components {
+  .page-stack {
+    @apply mx-auto w-full max-w-[1500px] space-y-6;
+  }
+
+  .page-heading {
+    @apply min-w-0;
+  }
+
+  .page-heading h1 {
+    @apply mt-1 text-2xl font-semibold text-slate-950 sm:text-3xl;
+  }
+
+  .page-heading p:not(.eyebrow) {
+    @apply mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base;
+  }
+
+  .page-heading-actions {
+    @apply flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .eyebrow {
+    @apply text-xs font-semibold uppercase text-cyan-700;
+    letter-spacing: 0;
+  }
+
+  .section-heading {
+    @apply mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between;
+  }
+
+  .section-heading h2 {
+    @apply text-lg font-semibold text-slate-950;
+  }
+
+  .section-heading p {
+    @apply mt-1 text-sm text-slate-500;
+  }
+
+  .surface {
+    @apply rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-5;
+  }
+
+  .site-card {
+    @apply rounded-lg border border-slate-200 bg-white p-5 shadow-sm transition hover:border-cyan-300 hover:shadow-md;
+  }
+
+  .action-button-primary,
+  .action-button-secondary,
+  .action-button-danger {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .action-button-primary {
+    @apply bg-cyan-600 text-white hover:bg-cyan-700;
+  }
+
+  .action-button-secondary {
+    @apply border border-slate-300 bg-white text-slate-700 hover:border-cyan-400 hover:text-cyan-800;
+  }
+
+  .action-button-danger {
+    @apply border border-rose-300 bg-white text-rose-700 hover:bg-rose-50;
+  }
+
+  .icon-button {
+    @apply inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 transition hover:border-cyan-400 hover:text-cyan-800 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .quick-action {
+    @apply flex min-h-20 items-center gap-3 rounded-lg border border-slate-200 bg-white p-4 text-left shadow-sm transition hover:border-cyan-300 hover:bg-cyan-50/40;
+  }
+
+  .quick-action > svg {
+    @apply shrink-0 text-cyan-700;
+  }
+
+  .quick-action strong,
+  .quick-action small {
+    @apply block;
+  }
+
+  .quick-action strong {
+    @apply text-sm font-semibold text-slate-950;
+  }
+
+  .quick-action small {
+    @apply mt-1 text-xs leading-5 text-slate-500;
+  }
+
+  .status-badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .status-success {
+    @apply bg-emerald-50 text-emerald-700;
+  }
+
+  .status-warning {
+    @apply bg-amber-50 text-amber-800;
+  }
+
+  .status-danger {
+    @apply bg-rose-50 text-rose-700;
+  }
+
+  .status-neutral {
+    @apply bg-slate-100 text-slate-600;
+  }
+
+  .notice-error,
+  .notice-success,
+  .notice-info {
+    @apply rounded-lg border px-4 py-3 text-sm leading-6;
+  }
+
+  .notice-error {
+    @apply border-rose-200 bg-rose-50 text-rose-700;
+  }
+
+  .notice-success {
+    @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+  }
+
+  .notice-info {
+    @apply border-cyan-200 bg-cyan-50 text-cyan-800;
+  }
+
+  .empty-state {
+    @apply flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-slate-500;
+  }
+
+  .empty-state h2 {
+    @apply text-base font-semibold text-slate-900;
+  }
+
+  .empty-state p {
+    @apply max-w-md text-sm leading-6;
+  }
+
+  .loading-dot {
+    @apply h-6 w-6 animate-pulse rounded-full bg-cyan-500;
+  }
+
+  .form-control {
+    @apply min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 transition placeholder:text-slate-400 hover:border-slate-400 focus:border-cyan-500;
+  }
+
+  .data-table {
+    @apply min-w-full text-left text-sm;
+  }
+
+  .data-table thead {
+    @apply text-xs font-semibold uppercase text-slate-500;
+    letter-spacing: 0;
+  }
+
+  .data-table th {
+    @apply border-b border-slate-200 px-3 py-3;
+  }
+
+  .data-table td {
+    @apply border-b border-slate-100 px-3 py-3 align-top text-slate-700;
   }
 }

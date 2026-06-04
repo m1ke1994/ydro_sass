@@ -40,6 +40,20 @@ class Command(BaseCommand):
                 holder_pid = lock_file.read_text(encoding="utf-8").strip()
             except OSError:
                 holder_pid = "unknown"
+            if holder_pid == str(os.getpid()):
+                logger.warning(
+                    "Removing stale Telegram polling file lock left by a previous container process. lock_file=%s pid=%s",
+                    lock_file,
+                    os.getpid(),
+                )
+                try:
+                    lock_file.unlink()
+                    fd = os.open(str(lock_file), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                    os.write(fd, str(os.getpid()).encode("utf-8"))
+                    return fd
+                except OSError:
+                    logger.exception("Failed to replace stale Telegram polling file lock. lock_file=%s", lock_file)
+                    return None
             logger.error(
                 "Telegram polling file lock already exists. lock_file=%s holder_pid=%s current_pid=%s",
                 lock_file,
@@ -189,7 +203,6 @@ class Command(BaseCommand):
             previous_chat_id,
             client.telegram_chat_id,
         )
-        self._send_message(token, chat_id, "Telegram успешно подключен к вашему аккаунту Mini CRM.")
 
     def _handle_trial_command(self, token: str, chat_id: int, sender_id: int | None) -> None:
         subscription = None
@@ -236,7 +249,7 @@ class Command(BaseCommand):
 
         link = TelegramLink.objects.filter(telegram_user_id=sender_id).select_related("client").first()
         if link is None:
-            self._send_message(token, chat_id, "Telegram успешно подключен к вашему аккаунту Mini CRM.")
+            self._send_message(token, chat_id, "Telegram не подключен к аккаунту Mini CRM.")
             return
 
         subscription = Subscription.objects.filter(id=int(subscription_id_raw), client_id=link.client_id).first()

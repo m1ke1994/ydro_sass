@@ -1,137 +1,93 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { CheckCircle2, MessageCircle, Send, Unplug } from '@lucide/vue'
 
-import {
-  miniSettings,
-  miniTelegramDisconnect,
-  miniTelegramSendTest,
-  miniTelegramStatus,
-} from '../../api/mini'
+import { miniTelegramDisconnect, miniTelegramSendTest, miniTelegramStatus } from '../../api/mini'
 
 const loading = ref(false)
-const actionLoading = ref(false)
+const action = ref('')
 const error = ref('')
 const success = ref('')
-const settings = ref(null)
 const telegram = ref(null)
+const connected = computed(() => Boolean(telegram.value?.connected))
 
-async function loadData() {
+async function load() {
   loading.value = true
   error.value = ''
-  try {
-    const [settingsPayload, telegramPayload] = await Promise.all([
-      miniSettings(),
-      miniTelegramStatus(),
-    ])
-    settings.value = settingsPayload
-    telegram.value = telegramPayload
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось загрузить данные интеграции.'
-  } finally {
-    loading.value = false
-  }
+  try { telegram.value = await miniTelegramStatus() }
+  catch (e) { error.value = e?.response?.data?.detail || 'Не удалось проверить подключение Telegram.' }
+  finally { loading.value = false }
 }
 
-function openTelegramConnect() {
-  const url = telegram.value?.telegram_connect_url
-  if (!url) {
-    error.value = 'Не найден URL для подключения Telegram.'
+function connect() {
+  if (!telegram.value?.telegram_connect_url) {
+    error.value = 'Ссылка подключения пока недоступна. Обновите страницу позже.'
     return
   }
-  window.open(url, '_blank', 'noopener,noreferrer')
+  window.open(telegram.value.telegram_connect_url, '_blank', 'noopener,noreferrer')
 }
 
-async function sendTestMessage() {
-  actionLoading.value = true
-  error.value = ''
-  success.value = ''
-  try {
-    const response = await miniTelegramSendTest()
-    success.value = response?.detail || 'Тестовое сообщение отправлено.'
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось отправить тестовое сообщение.'
-  } finally {
-    actionLoading.value = false
-  }
+async function sendTest() {
+  action.value = 'test'; error.value = ''; success.value = ''
+  try { const data = await miniTelegramSendTest(); success.value = data?.detail || 'Тестовое сообщение отправлено.' }
+  catch (e) { error.value = e?.response?.data?.detail || 'Не удалось отправить тестовое сообщение.' }
+  finally { action.value = '' }
 }
 
-async function disconnectTelegram() {
-  actionLoading.value = true
-  error.value = ''
-  success.value = ''
-  try {
-    const response = await miniTelegramDisconnect()
-    success.value = response?.detail || 'Telegram отключен.'
-    await loadData()
-  } catch (e) {
-    error.value = e?.response?.data?.detail || 'Не удалось отключить Telegram.'
-  } finally {
-    actionLoading.value = false
-  }
+async function disconnect() {
+  action.value = 'disconnect'; error.value = ''; success.value = ''
+  try { const data = await miniTelegramDisconnect(); success.value = data?.detail || 'Telegram отключен.'; await load() }
+  catch (e) { error.value = e?.response?.data?.detail || 'Не удалось отключить Telegram.' }
+  finally { action.value = '' }
 }
 
-onMounted(loadData)
+onMounted(load)
 </script>
 
 <template>
-  <section class="space-y-4 rounded-2xl border border-slate-200 bg-white p-4">
-    <h2 class="text-base font-semibold text-slate-900">Интеграции mini</h2>
+  <div class="page-stack">
+    <header class="page-heading">
+      <p class="eyebrow">Мгновенные уведомления</p>
+      <h1>Telegram</h1>
+      <p>Получайте новые заявки в подключенный Telegram-чат.</p>
+    </header>
+    <p v-if="error" class="notice-error">{{ error }}</p>
+    <p v-if="success" class="notice-success">{{ success }}</p>
+    <section v-if="loading" class="empty-state"><span class="loading-dot" /><p>Проверяем подключение...</p></section>
+    <template v-else>
+      <section class="surface">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div class="flex items-start gap-3">
+            <span class="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-lg" :class="connected ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+              <CheckCircle2 v-if="connected" :size="24" /><MessageCircle v-else :size="24" />
+            </span>
+            <div>
+              <h2 class="text-lg font-semibold text-slate-950">{{ connected ? 'Telegram подключен' : 'Telegram не подключен' }}</h2>
+              <p class="mt-1 text-sm leading-6 text-slate-600">{{ connected ? 'Новые заявки будут приходить в ваш чат.' : 'Подключите чат, чтобы сразу узнавать о новых заявках.' }}</p>
+            </div>
+          </div>
+          <button v-if="!connected" type="button" class="action-button-primary" :disabled="!telegram?.telegram_connect_url" @click="connect">
+            <MessageCircle :size="18" />Подключить Telegram
+          </button>
+        </div>
+      </section>
 
-    <p v-if="loading" class="text-sm text-slate-500">Загрузка...</p>
-    <p v-if="error" class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{{ error }}</p>
-    <p v-if="success" class="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-700">{{ success }}</p>
+      <section class="surface">
+        <div class="section-heading"><div><h2>Как это работает</h2><p>Подключение занимает меньше минуты.</p></div></div>
+        <ol class="grid gap-3 sm:grid-cols-3">
+          <li v-for="(text, index) in ['Нажмите кнопку подключения', 'Откройте бота и нажмите Start', 'Вернитесь сюда и отправьте тест']" :key="text" class="rounded-lg bg-slate-50 p-4 text-sm leading-6 text-slate-700">
+            <strong class="mb-2 block text-cyan-800">Шаг {{ index + 1 }}</strong>{{ text }}
+          </li>
+        </ol>
+      </section>
 
-    <div class="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
-      <p><strong>API key:</strong> {{ settings?.api_key || '—' }}</p>
-      <p class="mt-2"><strong>Тег трекера:</strong></p>
-      <pre class="mt-1 overflow-x-auto whitespace-pre-wrap text-xs">{{ settings?.public_script_tag || '—' }}</pre>
-      <p class="mt-2"><strong>URL скрипта:</strong> {{ settings?.tracker_script_url || '—' }}</p>
-    </div>
-
-    <div class="rounded-xl border border-slate-200 p-3 text-sm">
-      <h3 class="font-semibold text-slate-900">Telegram</h3>
-      <p class="mt-2">
-        <strong>Статус:</strong>
-        {{ telegram?.connected ? 'Telegram подключен' : 'Telegram не подключен' }}
-      </p>
-
-      <div class="mt-3 flex flex-wrap gap-2">
-        <button
-          class="rounded-xl bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 disabled:opacity-70"
-          :disabled="actionLoading || !telegram?.telegram_connect_url"
-          @click="openTelegramConnect"
-        >
-          Подключить Telegram
-        </button>
-        <button
-          class="rounded-xl border border-slate-300 px-4 py-2 text-sm disabled:opacity-70"
-          :disabled="actionLoading || !telegram?.connected"
-          @click="sendTestMessage"
-        >
-          Отправить тестовое сообщение
-        </button>
-        <button
-          class="rounded-xl border border-rose-300 px-4 py-2 text-sm text-rose-700 disabled:opacity-70"
-          :disabled="actionLoading || !telegram?.connected"
-          @click="disconnectTelegram"
-        >
-          Отключить Telegram
-        </button>
-      </div>
-
-      <details class="mt-3">
-        <summary class="cursor-pointer text-xs text-slate-500">Технические детали</summary>
-        <p class="mt-2 break-all text-xs text-slate-500">
-          Connect URL: {{ telegram?.telegram_connect_url || '—' }}
-        </p>
-      </details>
-    </div>
-
-    <div class="rounded-xl border border-slate-200 p-3 text-sm">
-      <p class="font-medium text-slate-800">Отправка лида с сайта</p>
-      <pre class="mt-2 overflow-x-auto whitespace-pre-wrap text-xs">POST /api/mini/public/lead/
-Header: X-API-KEY: {{ settings?.api_key || 'YOUR_API_KEY' }}
-Body: {"name":"Иван","phone":"+7999...","message":"Нужна консультация"}</pre>
-    </div>
-  </section>
+      <section v-if="connected" class="surface">
+        <div class="section-heading"><div><h2>Проверка подключения</h2><p>Тестовое сообщение отправляется только после нажатия кнопки.</p></div></div>
+        <div class="flex flex-col gap-2 sm:flex-row">
+          <button type="button" class="action-button-primary" :disabled="Boolean(action)" @click="sendTest"><Send :size="17" />{{ action === 'test' ? 'Отправляем...' : 'Отправить тестовое сообщение' }}</button>
+          <button type="button" class="action-button-danger" :disabled="Boolean(action)" @click="disconnect"><Unplug :size="17" />Отключить Telegram</button>
+        </div>
+      </section>
+    </template>
+  </div>
 </template>

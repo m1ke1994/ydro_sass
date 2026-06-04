@@ -60,8 +60,8 @@ onMounted(loadSubscription)
 <template>
   <section class="space-y-4">
     <div class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <h1 class="text-xl font-semibold text-slate-900">Mini CRM</h1>
-      <p class="mt-1 text-sm text-slate-500">Раздел с функционалом, перенесённым из mini_bitrix.</p>
+      <h1 class="text-xl font-semibold text-slate-900">Дополнительные инструменты</h1>
+      <p class="mt-1 text-sm text-slate-500">Отчёты, настройки и дополнительные возможности сайта.</p>
     </div>
 
     <div v-if="loading" class="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
@@ -87,12 +87,12 @@ onMounted(loadSubscription)
 
     <div class="rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
       <nav class="flex flex-wrap gap-2">
-        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini">Обзор</RouterLink>
+        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini">Статистика</RouterLink>
         <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/leads">Заявки</RouterLink>
-        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/seo">SEO-аудит</RouterLink>
+        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/seo">Проверка сайта</RouterLink>
         <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/reports">Отчёты</RouterLink>
         <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/settings">Настройки</RouterLink>
-        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/integration">Интеграция</RouterLink>
+        <RouterLink class="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100" active-class="bg-brand-50 text-brand-700" to="/mini/integration">Telegram</RouterLink>
       </nav>
     </div>
 
