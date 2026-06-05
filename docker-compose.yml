@@ -48,6 +48,7 @@
       REDIS_URL: redis://redis:6379/1
       SITE_BASE_URL: http://localhost:8000
       PUBLIC_BASE_URL: http://localhost:8000
+      DJANGO_SERVE_MEDIA_FILES: ${DJANGO_SERVE_MEDIA_FILES:-1}
       RUN_SEED_DEMO_DATA: 0
     depends_on:
       postgres:
