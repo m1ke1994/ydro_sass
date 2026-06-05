@@ -1,10 +1,14 @@
 ﻿from django.db.models import Count, Q
+from django.conf import settings
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import generics, serializers, status
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+
+from leads.services import send_telegram_message
 
 from .models import Site, SiteLead, SiteSection
 from .serializers import (
@@ -18,6 +22,8 @@ from .serializers import (
     PublicSiteSectionSerializer,
     PublicSiteSerializer,
 )
+from .telegram_binding import build_site_start_payload
+from .tracker_utils import build_tracker_script_tag
 
 
 def _normalize_domain(value):
@@ -180,6 +186,94 @@ class AdminSiteAccessMixin:
         if self.request.user.is_superuser:
             return queryset
         return queryset.filter(site__owner=self.request.user)
+
+
+def _telegram_connect_data(site: Site) -> dict:
+    payload = build_site_start_payload(site)
+    bot_username = str(getattr(settings, "TELEGRAM_BOT_USERNAME", "") or "").lstrip("@")
+    connect_url = f"https://t.me/{bot_username}?start={payload}" if bot_username else ""
+    return {
+        "connect_token": payload,
+        "start_command": f"/start {payload}",
+        "telegram_bot_username": bot_username,
+        "telegram_connect_url": connect_url,
+    }
+
+
+class AdminSiteTelegramStatusView(AdminSiteAccessMixin, APIView):
+    def get(self, request, site_id: int):
+        site = self.get_site()
+        connected = bool(site.telegram_chat_id and site.send_to_telegram)
+        data = {
+            "connected": connected,
+            "telegram_status": "connected" if connected else "disconnected",
+            "send_to_telegram": bool(site.send_to_telegram),
+            "chat_id": site.telegram_chat_id or "",
+            "connected_at": site.telegram_connected_at,
+            "bot_configured": bool(getattr(settings, "TELEGRAM_BOT_TOKEN", "")),
+        }
+        data.update(_telegram_connect_data(site))
+        return Response(data, status=status.HTTP_200_OK)
+
+
+class AdminSiteTelegramDisconnectView(AdminSiteAccessMixin, APIView):
+    def post(self, request, site_id: int):
+        site = self.get_site()
+        if not site.telegram_chat_id and not site.send_to_telegram:
+            return Response({"ok": True, "detail": "Telegram уже отключен."}, status=status.HTTP_200_OK)
+
+        site.telegram_chat_id = None
+        site.send_to_telegram = False
+        site.telegram_connected_at = None
+        site.save(update_fields=["telegram_chat_id", "send_to_telegram", "telegram_connected_at", "updated_at"])
+        return Response({"ok": True, "detail": "Telegram отключен."}, status=status.HTTP_200_OK)
+
+
+class AdminSiteTelegramSendTestView(AdminSiteAccessMixin, APIView):
+    def post(self, request, site_id: int):
+        site = self.get_site()
+        if not site.telegram_chat_id or not site.send_to_telegram:
+            return Response(
+                {
+                    "ok": False,
+                    "detail": "Telegram пока не подключен. Нажмите «Подключить Telegram» и отправьте команду /start боту.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        test_text = (
+            "Тестовое сообщение из Yadro\n\n"
+            f"Сайт: {site.name}\n"
+            f"Домен: {site.domain or site.slug}\n"
+            f"Дата: {timezone.localtime(timezone.now()):%d.%m.%Y %H:%M}"
+        )
+        delivered = send_telegram_message(site.telegram_chat_id, test_text)
+        if delivered:
+            return Response({"ok": True, "detail": "Тестовое сообщение отправлено."}, status=status.HTTP_200_OK)
+
+        return Response(
+            {
+                "ok": False,
+                "detail": "Не удалось отправить сообщение в Telegram. Проверьте токен бота и повторите подключение.",
+            },
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
+
+
+class AdminSiteTrackingKeyRefreshView(AdminSiteAccessMixin, APIView):
+    def post(self, request, site_id: int):
+        site = self.get_site()
+        site.api_key = Site._meta.get_field("api_key").default()
+        site.save(update_fields=["api_key", "updated_at"])
+        return Response(
+            {
+                "ok": True,
+                "api_key": site.api_key,
+                "tracker_script_tag": build_tracker_script_tag(site.api_key),
+                "detail": "Ключ аналитики обновлен.",
+            },
+            status=status.HTTP_200_OK,
+        )
 
 
 class AdminMySitesListView(AdminSiteAccessMixin, generics.ListAPIView):

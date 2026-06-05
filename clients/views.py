@@ -167,7 +167,7 @@ def tracker_js_view(request):
       if (!script || !script.src || script.src.indexOf('/tracker.js') === -1) {
         continue;
       }
-      if (script.dataset && (script.dataset.token || script.dataset.apiKey)) {
+      if (script.dataset && (script.dataset.token || script.dataset.apiKey || script.dataset.siteKey)) {
         return script;
       }
     }
@@ -206,7 +206,7 @@ def tracker_js_view(request):
   var scriptTag = getScript();
   var token = '';
   try {
-    token = String(scriptTag && scriptTag.dataset ? (scriptTag.dataset.token || scriptTag.dataset.apiKey || '') : '').trim();
+    token = String(scriptTag && scriptTag.dataset ? (scriptTag.dataset.siteKey || scriptTag.dataset.token || scriptTag.dataset.apiKey || '') : '').trim();
   } catch (_) {
     token = '';
   }
@@ -225,7 +225,7 @@ def tracker_js_view(request):
   logDebug('init start');
 
   if (!token) {
-    logError('Missing tracker token. Use data-token or data-api-key.');
+    logError('Missing tracker token. Use data-site-key, data-token or data-api-key.');
     return;
   }
 

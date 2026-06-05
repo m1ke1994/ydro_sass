@@ -15,40 +15,40 @@ class Client(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="client",
-        verbose_name="Owner",
+        verbose_name="Владелец",
     )
-    name = models.CharField(max_length=255, verbose_name="Client name")
+    name = models.CharField(max_length=255, verbose_name="Название клиента")
     uuid = models.UUIDField(
         default=uuid.uuid4,
         unique=True,
         db_index=True,
         editable=False,
-        verbose_name="Client UUID",
+        verbose_name="UUID клиента",
     )
     api_key = models.CharField(
         max_length=128,
         unique=True,
         db_index=True,
         editable=False,
-        verbose_name="API key",
+        verbose_name="API-ключ",
     )
     telegram_chat_id = models.CharField(
         max_length=64,
         null=True,
         blank=True,
-        verbose_name="Telegram chat ID",
+        verbose_name="ID чата Telegram",
     )
     send_to_telegram = models.BooleanField(
         default=False,
-        verbose_name="Send leads to Telegram",
+        verbose_name="Отправлять заявки в Telegram",
     )
-    is_active = models.BooleanField(default=True, verbose_name="Active")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
 
     class Meta:
         ordering = ("-created_at",)
-        verbose_name = "Client"
-        verbose_name_plural = "Clients"
+        verbose_name = "Клиент Mini CRM"
+        verbose_name_plural = "Клиенты Mini CRM"
 
     def save(self, *args, **kwargs):
         if not self.api_key:

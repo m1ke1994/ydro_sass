@@ -4,7 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { BarChart3, Blocks, ExternalLink, Inbox, SearchCheck, Send } from '@lucide/vue'
 
 import { getSiteAnalyticsSummaryRequest } from '../api/analytics'
-import { miniTelegramStatus } from '../api/mini'
+import { getSiteTelegramRequest } from '../api/site'
 import DashboardStats from '../components/DashboardStats.vue'
 import { useSiteStore } from '../stores/site'
 
@@ -46,10 +46,10 @@ async function load() {
     if (!siteStore.currentSite) await siteStore.fetchSite(siteId.value)
     const [{ data }, telegramData] = await Promise.all([
       getSiteAnalyticsSummaryRequest(siteId.value, { days: 14 }),
-      miniTelegramStatus(),
+      getSiteTelegramRequest(siteId.value),
     ])
     summary.value = data
-    telegram.value = telegramData
+    telegram.value = telegramData.data
   } catch (e) {
     error.value = e?.response?.data?.detail || 'Не удалось загрузить данные сайта.'
   } finally {

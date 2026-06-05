@@ -227,30 +227,45 @@ def _validate_settings(settings):
 
 
 class Site(models.Model):
-    name = models.CharField(max_length=255, verbose_name="Site name")
-    slug = models.SlugField(max_length=255, unique=True, verbose_name="Site slug")
-    domain = models.CharField(max_length=255, blank=True, verbose_name="Domain")
+    name = models.CharField(max_length=255, verbose_name="Название сайта")
+    slug = models.SlugField(max_length=255, unique=True, verbose_name="Slug сайта")
+    domain = models.CharField(max_length=255, blank=True, verbose_name="Домен")
     api_key = models.CharField(
         max_length=128,
         unique=True,
         editable=False,
         default=generate_api_key,
-        verbose_name="API key",
+        verbose_name="Ключ аналитики",
     )
-    seo = models.JSONField(default=dict, blank=True, verbose_name="SEO settings")
+    telegram_chat_id = models.CharField(
+        max_length=64,
+        null=True,
+        blank=True,
+        verbose_name="ID чата Telegram",
+    )
+    send_to_telegram = models.BooleanField(
+        default=False,
+        verbose_name="Отправлять заявки в Telegram",
+    )
+    telegram_connected_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Telegram подключен",
+    )
+    seo = models.JSONField(default=dict, blank=True, verbose_name="SEO-настройки")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="sites",
-        verbose_name="Owner",
+        verbose_name="Владелец",
     )
-    is_active = models.BooleanField(default=True, verbose_name="Is active")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    is_active = models.BooleanField(default=True, verbose_name="Активен")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлено")
 
     class Meta:
-        verbose_name = "Site"
-        verbose_name_plural = "Sites"
+        verbose_name = "Сайт"
+        verbose_name_plural = "Сайты"
         ordering = ["name"]
 
     def __str__(self):

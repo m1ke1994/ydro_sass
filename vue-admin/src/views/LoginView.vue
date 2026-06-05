@@ -45,13 +45,13 @@ async function submit() {
 <template>
   <div class="flex min-h-screen items-center justify-center bg-gradient-to-b from-slate-100 via-slate-50 to-brand-50 px-4">
     <div class="w-full max-w-md rounded-2xl border border-white bg-white p-8 shadow-soft">
-      <p class="text-xs uppercase tracking-[0.25em] text-brand-600">Vue Admin</p>
+      <p class="text-xs uppercase tracking-[0.25em] text-brand-600">Панель Yadro</p>
       <h1 class="mt-3 text-2xl font-semibold text-slate-900">Вход в панель</h1>
       <p class="mt-2 text-sm text-slate-500">Управляйте контентом ваших сайтов из ядра.</p>
 
       <form class="mt-6 space-y-4" @submit.prevent="submit">
         <div>
-          <label class="mb-1 block text-sm font-medium text-slate-700">Email</label>
+          <label class="mb-1 block text-sm font-medium text-slate-700">Электронная почта</label>
           <input
             v-model="form.email"
             type="email"

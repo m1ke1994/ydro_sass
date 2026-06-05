@@ -6,6 +6,7 @@ from rest_framework import serializers
 from leads.services import send_lead_telegram_notification
 
 from .models import SectionSchema, Site, SiteLead, SiteSection
+from .tracker_utils import build_tracker_script_tag
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +62,9 @@ class AdminMySiteSerializer(serializers.ModelSerializer):
             "slug",
             "domain",
             "api_key",
+            "telegram_chat_id",
+            "send_to_telegram",
+            "telegram_connected_at",
             "seo",
             "is_active",
             "sections_count",
@@ -76,7 +80,7 @@ class AdminMySiteSerializer(serializers.ModelSerializer):
         return obj.sections.filter(is_active=True).count()
 
     def get_tracker_script_tag(self, obj):
-        return f'<script src="http://localhost:8000/tracker.js" data-api-key="{obj.api_key}"></script>'
+        return build_tracker_script_tag(obj.api_key)
 
 
 class AdminMySiteSectionSerializer(serializers.ModelSerializer):

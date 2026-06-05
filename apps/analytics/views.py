@@ -1,6 +1,6 @@
 from urllib.parse import urlparse
 
-from django.db.models import Count
+from django.db.models import Avg, Count
 from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.utils import timezone
@@ -10,6 +10,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.sites.models import Site, SiteLead
+from apps.sites.tracker_utils import build_tracker_script_tag
+from tracker.models import Event as TrackerEvent
+from tracker.models import PageView as TrackerPageView
+from tracker.models import Site as TrackerSite
+from tracker.models import Visit as TrackerVisit
 
 from .models import PageView, TrackingEvent, Visit
 from .serializers import PageViewSerializer, TrackEventSerializer, VisitEndSerializer, VisitStartSerializer
@@ -189,9 +194,43 @@ class AdminSiteAnalyticsSummaryView(APIView):
         days = min(max(days, 1), 365)
         from_dt = timezone.now() - timezone.timedelta(days=days)
 
-        visits = Visit.objects.filter(site=site, started_at__gte=from_dt)
-        pageviews = PageView.objects.filter(visit__site=site, timestamp__gte=from_dt)
-        events = TrackingEvent.objects.filter(visit__site=site, timestamp__gte=from_dt)
+        tracker_site = TrackerSite.objects.filter(token=site.api_key, is_active=True).first()
+        if tracker_site is not None:
+            visits = TrackerVisit.objects.filter(site=tracker_site, started_at__gte=from_dt, is_bot=False)
+            pageviews = TrackerPageView.objects.filter(visit__site=tracker_site, timestamp__gte=from_dt)
+            events = TrackerEvent.objects.filter(visit__site=tracker_site, timestamp__gte=from_dt)
+            top_pages = list(
+                pageviews.values("url")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            for page in top_pages:
+                page["pathname"] = _pathname_from_url(page.pop("url", ""))
+            sources = list(
+                visits.values("referrer")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            devices = dict(visits.values_list("device_type").annotate(count=Count("id")))
+            browsers = dict(visits.values_list("browser_family").annotate(count=Count("id")))
+            os_rows = dict(visits.values_list("os").annotate(count=Count("id")))
+        else:
+            visits = Visit.objects.filter(site=site, started_at__gte=from_dt)
+            pageviews = PageView.objects.filter(visit__site=site, timestamp__gte=from_dt)
+            events = TrackingEvent.objects.filter(visit__site=site, timestamp__gte=from_dt)
+            top_pages = list(
+                pageviews.values("pathname")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            sources = list(
+                visits.values("referrer")
+                .annotate(count=Count("id"))
+                .order_by("-count")[:10]
+            )
+            devices = {}
+            browsers = {}
+            os_rows = {}
         leads = SiteLead.objects.filter(site=site, created_at__gte=from_dt)
 
         visits_count = visits.count()
@@ -213,11 +252,7 @@ class AdminSiteAnalyticsSummaryView(APIView):
             .annotate(count=Count("id"))
             .order_by("day")
         )
-        top_pages = list(
-            pageviews.values("pathname")
-            .annotate(count=Count("id"))
-            .order_by("-count")[:10]
-        )
+        avg_duration = round(visits.aggregate(value=Avg("duration"))["value"] or 0)
 
         return Response(
             {
@@ -231,9 +266,14 @@ class AdminSiteAnalyticsSummaryView(APIView):
                 "visits_by_day": visits_daily,
                 "leads_by_day": leads_daily,
                 "top_pages": top_pages,
+                "sources": sources,
+                "devices": devices,
+                "browsers": browsers,
+                "os": os_rows,
+                "avg_duration": avg_duration,
                 "tracker": {
                     "api_key": site.api_key,
-                    "script_tag": f'<script src="http://localhost:8000/tracker.js" data-api-key="{site.api_key}"></script>',
+                    "script_tag": build_tracker_script_tag(site.api_key),
                 },
             }
         )

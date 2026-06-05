@@ -31,19 +31,21 @@ class SiteAdmin(admin.ModelAdmin):
         "slug",
         "domain",
         "api_key",
+        "telegram_status",
         "owner",
         "is_active",
         "sections_count",
         "created_at",
     )
-    list_filter = ("is_active", "created_at")
-    search_fields = ("name", "slug", "domain", "owner__username", "owner__email")
+    list_filter = ("is_active", "send_to_telegram", "created_at")
+    search_fields = ("name", "slug", "domain", "telegram_chat_id", "owner__username", "owner__email")
     prepopulated_fields = {"slug": ("name",)}
-    readonly_fields = ("api_key", "created_at", "updated_at")
+    readonly_fields = ("api_key", "telegram_connected_at", "created_at", "updated_at")
     fieldsets = (
-        ("Main", {"fields": ("name", "slug", "domain", "api_key", "owner", "is_active")}),
+        ("Основное", {"fields": ("name", "slug", "domain", "api_key", "owner", "is_active")}),
+        ("Telegram", {"fields": ("telegram_chat_id", "send_to_telegram", "telegram_connected_at")}),
         ("SEO", {"fields": ("seo",)}),
-        ("Meta", {"fields": ("created_at", "updated_at")}),
+        ("Служебное", {"fields": ("created_at", "updated_at")}),
     )
     inlines = (SiteSectionInline,)
 
@@ -54,6 +56,10 @@ class SiteAdmin(admin.ModelAdmin):
     @admin.display(description="Sections", ordering="sections_total")
     def sections_count(self, obj):
         return obj.sections_total
+
+    @admin.display(description="Telegram")
+    def telegram_status(self, obj):
+        return "подключен" if obj.telegram_chat_id and obj.send_to_telegram else "не подключен"
 
 
 @admin.register(SectionSchema)

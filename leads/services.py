@@ -121,6 +121,14 @@ def build_lead_telegram_message(lead, *, client=None, site=None) -> str:
 def send_lead_telegram_notification(lead, *, client=None, site=None) -> bool:
     resolved_site = site or getattr(lead, "site", None)
     resolved_client = client or getattr(lead, "client", None)
+    if (
+        resolved_site is not None
+        and getattr(resolved_site, "send_to_telegram", False)
+        and getattr(resolved_site, "telegram_chat_id", None)
+    ):
+        message = build_lead_telegram_message(lead, client=resolved_client, site=resolved_site)
+        return send_telegram_message(resolved_site.telegram_chat_id, message)
+
     if resolved_client is None and resolved_site is not None:
         resolved_client = getattr(getattr(resolved_site, "owner", None), "client", None)
     if resolved_client is None or not resolved_client.send_to_telegram or not resolved_client.telegram_chat_id:

@@ -179,7 +179,7 @@ onMounted(load)
           <p><strong class="block text-slate-500">Дата</strong>{{ formatDate(selectedLead.created_at) }}</p>
           <p><strong class="block text-slate-500">Статус</strong>{{ statusOption(selectedLead.status).label }}</p>
           <p><strong class="block text-slate-500">Телефон</strong>{{ selectedLead.phone || 'Не указано' }}</p>
-          <p><strong class="block text-slate-500">Email</strong>{{ selectedLead.email || 'Не указано' }}</p>
+          <p><strong class="block text-slate-500">Электронная почта</strong>{{ selectedLead.email || 'Не указано' }}</p>
           <p><strong class="block text-slate-500">Форма</strong>{{ selectedLead.form_name || 'Не указано' }}</p>
           <p><strong class="block text-slate-500">Источник</strong>{{ pageLabel(selectedLead.source_url) }}</p>
           <p class="sm:col-span-2"><strong class="block text-slate-500">Комментарий</strong>{{ selectedLead.message || 'Не указано' }}</p>

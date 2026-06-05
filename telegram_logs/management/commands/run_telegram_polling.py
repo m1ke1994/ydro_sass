@@ -11,6 +11,7 @@ from django.core.cache import cache
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
+from apps.sites.telegram_binding import resolve_site_start_payload
 from clients.models import Client
 from clients.telegram_binding import resolve_secure_start_payload
 from subscriptions.models import Subscription, TelegramLink
@@ -174,7 +175,7 @@ class Command(BaseCommand):
 
         parts = normalized.split(maxsplit=1)
         if len(parts) < 2 or not parts[1].strip():
-            self._send_message(token, chat_id, "Use the Telegram connect button from TrackNode dashboard.")
+            self._send_message(token, chat_id, "Откройте кнопку «Подключить Telegram» в админке Yadro и отправьте команду /start с токеном.")
             return
 
         payload = parts[1].strip()
@@ -185,9 +186,25 @@ class Command(BaseCommand):
             payload,
         )
 
+        site = resolve_site_start_payload(payload)
+        if site is not None:
+            previous_chat_id = site.telegram_chat_id
+            site.telegram_chat_id = str(chat_id)
+            site.send_to_telegram = True
+            site.telegram_connected_at = timezone.now()
+            site.save(update_fields=["telegram_chat_id", "send_to_telegram", "telegram_connected_at", "updated_at"])
+            logger.info(
+                "site telegram binding success site_id=%s old_chat_id=%s new_chat_id=%s",
+                site.id,
+                previous_chat_id,
+                site.telegram_chat_id,
+            )
+            self._send_message(token, chat_id, f"Telegram подключен к сайту «{site.name}».")
+            return
+
         client = resolve_secure_start_payload(payload)
         if client is None:
-            self._send_message(token, chat_id, "Токен подключения недействителен. Откройте кнопку подключения в Mini CRM ещё раз.")
+            self._send_message(token, chat_id, "Токен подключения недействителен или устарел. Откройте кнопку подключения в админке ещё раз.")
             return
 
         previous_chat_id = client.telegram_chat_id
@@ -301,6 +318,18 @@ class Command(BaseCommand):
         if file_lock_fd is None:
             logger.error("Telegram polling duplicate start prevented by file lock. pid=%s", os.getpid())
             return
+
+        current_holder = cache.get(lock_key)
+        if isinstance(current_holder, bytes):
+            current_holder = current_holder.decode("utf-8", errors="ignore")
+        if isinstance(current_holder, str) and current_holder.startswith(f"{os.getpid()}:"):
+            logger.warning(
+                "Removing stale Telegram polling redis lock left by a previous container process. lock_key=%s holder=%s pid=%s",
+                lock_key,
+                current_holder,
+                os.getpid(),
+            )
+            cache.delete(lock_key)
 
         while not cache.add(lock_key, lock_value, timeout=lock_ttl):
             current_holder = cache.get(lock_key)

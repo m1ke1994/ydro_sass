@@ -126,7 +126,7 @@ onUnmounted(stopPolling)
     <template v-if="detail || latest">
       <section class="grid gap-4 sm:grid-cols-[220px_1fr]">
         <article class="surface flex min-h-44 flex-col items-center justify-center text-center">
-          <p class="text-sm text-slate-500">SEO Score</p>
+          <p class="text-sm text-slate-500">Оценка SEO</p>
           <p class="mt-2 text-5xl font-semibold" :class="score >= 80 ? 'text-emerald-600' : score >= 50 ? 'text-amber-600' : 'text-rose-600'">{{ score }}</p>
           <p class="mt-2 text-sm text-slate-600">{{ statusText() }}</p>
         </article>
