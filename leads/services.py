@@ -85,7 +85,6 @@ def build_lead_telegram_message(lead, *, client=None, site=None) -> str:
         or payload.get("action")
         or getattr(lead, "section_key", None)
     )
-    source = payload.get("source") or payload.get("traffic_source") or payload.get("referrer")
     created_at = timezone.localtime(lead.created_at).strftime("%d.%m.%Y %H:%M")
 
     return "\n".join(
@@ -101,13 +100,6 @@ def build_lead_telegram_message(lead, *, client=None, site=None) -> str:
             f"Телефон: {_display_value(getattr(lead, 'phone', None))}",
             f"Email: {_display_value(getattr(lead, 'email', None))}",
             f"Комментарий: {_display_value(getattr(lead, 'message', None))}",
-            "",
-            f"Источник: {_display_value(source)}",
-            f"UTM source: {_display_value(getattr(lead, 'utm_source', None) or payload.get('utm_source') or url_context.get('utm_source'))}",
-            f"UTM medium: {_display_value(getattr(lead, 'utm_medium', None) or payload.get('utm_medium') or url_context.get('utm_medium'))}",
-            f"UTM campaign: {_display_value(getattr(lead, 'utm_campaign', None) or payload.get('utm_campaign') or url_context.get('utm_campaign'))}",
-            f"UTM term: {_display_value(payload.get('utm_term') or url_context.get('utm_term'))}",
-            f"UTM content: {_display_value(payload.get('utm_content') or url_context.get('utm_content'))}",
             "",
             f"Устройство: {_display_value(payload.get('device') or user_agent_context.get('device'))}",
             f"Браузер: {_display_value(payload.get('browser') or user_agent_context.get('browser'))}",

@@ -87,6 +87,34 @@ class PublicLeadApiTests(APITestCase):
         self.assertIn("Телефон: не указано", message)
         self.assertIn("Email: не указано", message)
         self.assertIn("Комментарий: не указано", message)
-        self.assertIn("Источник: не указано", message)
-        self.assertIn("UTM content: не указано", message)
         self.assertIn("IP: не указано", message)
+        self.assertNotIn("Источник:", message)
+        self.assertNotIn("UTM source:", message)
+        self.assertNotIn("UTM medium:", message)
+        self.assertNotIn("UTM campaign:", message)
+        self.assertNotIn("UTM term:", message)
+        self.assertNotIn("UTM content:", message)
+
+    def test_telegram_message_keeps_utm_data_out_of_client_text(self):
+        lead = Lead.objects.create(
+            client=self.client_obj,
+            name="Иван",
+            phone="+79999999999",
+            source_url="https://site.ru/?utm_source=google&utm_medium=cpc&utm_campaign=spring&utm_term=lila&utm_content=hero",
+            utm_source="google",
+            utm_medium="cpc",
+            utm_campaign="spring",
+            notification_context={
+                "source": "google ads",
+                "utm_term": "lila",
+                "utm_content": "hero",
+            },
+        )
+
+        message = build_lead_telegram_message(lead, client=self.client_obj)
+
+        self.assertEqual(lead.utm_source, "google")
+        self.assertEqual(lead.utm_medium, "cpc")
+        self.assertEqual(lead.utm_campaign, "spring")
+        self.assertNotIn("Источник:", message)
+        self.assertNotIn("UTM ", message)
