@@ -1,5 +1,6 @@
 <script setup>
 import { ChevronRight, Image, LayoutTemplate, MessageSquareText, Pencil, Rows3 } from '@lucide/vue'
+import { getSectionLabel } from '../utils/sectionLabels'
 
 defineProps({ siteId: { type: Number, required: true }, sections: { type: Array, default: () => [] } })
 
@@ -9,13 +10,13 @@ function sectionIcon(section) { return icons[section.section_type || section.key
 
 <template>
   <div v-if="sections.length" class="grid gap-3">
-    <article v-for="section in sections" :key="section.id" class="surface flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <article v-for="section in sections.filter((item) => item.is_active)" :key="section.id" class="surface flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex min-w-0 items-center gap-3">
         <span class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-cyan-50 text-cyan-700">
           <component :is="sectionIcon(section)" :size="21" />
         </span>
         <div class="min-w-0">
-          <p class="truncate font-semibold text-slate-950">{{ section.title }}</p>
+          <p class="truncate font-semibold text-slate-950">{{ getSectionLabel(section) }}</p>
           <p class="mt-1 text-sm text-slate-500">{{ section.is_active ? 'Виден посетителям сайта' : 'Скрыт от посетителей' }}</p>
         </div>
       </div>

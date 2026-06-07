@@ -56,11 +56,28 @@ class ClientMediaUploadView(ClientMediaAccessMixin, generics.CreateAPIView):
 
     def perform_create(self, serializer):
         site = self._resolve_site()
+        section_key = str(self.request.data.get("section") or "uploads")
+        field_key = str(self.request.data.get("field") or "")
+        original_name = getattr(self.request.data.get("file"), "name", "")
+
+        existing = MediaFile.objects.filter(
+            site=site,
+            section_key=section_key,
+            field_key=field_key,
+            original_name=original_name,
+        ).first()
+        if existing is not None:
+            storage = existing.file.storage
+            file_name = existing.file.name
+            existing.delete()
+            if file_name:
+                storage.delete(file_name)
+
         serializer.save(
             site=site,
-            section_key=str(self.request.data.get("section") or "uploads"),
-            field_key=str(self.request.data.get("field") or ""),
-            original_name=getattr(self.request.data.get("file"), "name", ""),
+            section_key=section_key,
+            field_key=field_key,
+            original_name=original_name,
         )
 
 

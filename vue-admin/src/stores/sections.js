@@ -36,6 +36,7 @@ export const useSectionsStore = defineStore('sections', () => {
     if (idx >= 0) {
       sections.value[idx] = data
     }
+    currentSection.value = data
     return data
   }
 

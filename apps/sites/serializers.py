@@ -6,6 +6,7 @@ from rest_framework import serializers
 from leads.services import send_lead_telegram_notification
 
 from .models import SectionSchema, Site, SiteLead, SiteSection
+from .a_meditation import SECTION_TITLES
 from .tracker_utils import build_tracker_script_tag
 
 logger = logging.getLogger(__name__)
@@ -85,6 +86,7 @@ class AdminMySiteSerializer(serializers.ModelSerializer):
 
 class AdminMySiteSectionSerializer(serializers.ModelSerializer):
     schema_template = serializers.SerializerMethodField()
+    display_title = serializers.SerializerMethodField()
 
     class Meta:
         model = SiteSection
@@ -93,6 +95,7 @@ class AdminMySiteSectionSerializer(serializers.ModelSerializer):
             "site",
             "key",
             "title",
+            "display_title",
             "section_type",
             "component_key",
             "order",
@@ -111,6 +114,11 @@ class AdminMySiteSectionSerializer(serializers.ModelSerializer):
         if not schema_obj:
             return None
         return SectionSchemaSerializer(schema_obj).data
+
+    def get_display_title(self, obj):
+        if obj.site.slug == "a-meditation":
+            return SECTION_TITLES.get(obj.key, obj.title)
+        return obj.title
 
 
 class AdminMySiteSectionCreateSerializer(serializers.ModelSerializer):
@@ -178,6 +186,9 @@ class AdminMySiteSectionPatchSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(details)
 
         return value
+
+    def to_representation(self, instance):
+        return AdminMySiteSectionSerializer(instance, context=self.context).data
 
 
 class PublicLeadCreateSerializer(serializers.Serializer):

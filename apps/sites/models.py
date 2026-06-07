@@ -22,6 +22,7 @@ SUPPORTED_FIELD_TYPES = {
     "textarea",
     "image",
     "video",
+    "media",
     "number",
     "boolean",
     "select",
@@ -164,7 +165,7 @@ def _validate_value_by_type(value, field_schema, path):
         return
 
     field_type = field_schema.get("type")
-    if field_type in {"text", "textarea", "image", "video", "select"}:
+    if field_type in {"text", "textarea", "image", "video", "media", "select"}:
         if not isinstance(value, str):
             _content_error(f"{path}: expected a string.")
         return

@@ -29,7 +29,7 @@ function updateField(key, value) {
 <template>
   <div class="space-y-5">
     <DynamicField
-      v-for="field in schema?.fields || []"
+      v-for="field in (schema?.fields || []).filter((item) => !item.hidden)"
       :key="field.key"
       :field="field"
       :model-value="modelValue?.[field.key]"

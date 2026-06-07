@@ -32,14 +32,21 @@ const fieldKeyLower = computed(() => String(fieldKey.value).toLowerCase())
 const inputId = computed(() => `field-${props.pathPrefix || fieldKey.value || Math.random().toString(36).slice(2)}`)
 
 const mediaKeyPattern = /(image|background_image|background_video|poster|avatar|photo|gallery|video)/i
-const isMediaType = computed(() => fieldType.value === 'image' || fieldType.value === 'video')
+const isMediaType = computed(() => ['image', 'video', 'media'].includes(fieldType.value))
 const isMediaByKey = computed(() => mediaKeyPattern.test(fieldKeyLower.value))
 const isMediaField = computed(() => isMediaType.value || isMediaByKey.value)
 const mediaType = computed(() => {
   if (fieldType.value === 'video' || fieldKeyLower.value.includes('video')) {
     return 'video'
   }
+  if (fieldType.value === 'media' && /\.(mp4|webm)(?:$|\?)/i.test(mediaValue.value)) {
+    return 'video'
+  }
   return 'image'
+})
+const acceptedMediaTypes = computed(() => {
+  if (fieldType.value === 'media') return 'image/*,video/mp4,video/webm'
+  return mediaType.value === 'video' ? 'video/*' : 'image/*'
 })
 
 const fileInputRef = ref(null)
@@ -76,6 +83,7 @@ const uploadActionLabel = computed(() => {
   if (rawLabel) {
     return `Загрузить ${rawLabel}`
   }
+  if (fieldType.value === 'media') return 'Загрузить изображение или видео'
   return mediaType.value === 'video' ? 'Загрузить видео' : 'Загрузить изображение'
 })
 
@@ -174,7 +182,7 @@ function updateRepeaterCell(index, key, value) {
   <div class="space-y-2">
     <div class="flex items-center justify-between">
       <label :for="inputId" class="text-sm font-medium text-slate-800">
-        {{ field.label || field.key }}
+        {{ field.label || 'Поле' }}
       </label>
       <span v-if="field.required" class="text-xs text-rose-500">обязательно</span>
     </div>
@@ -242,7 +250,7 @@ function updateRepeaterCell(index, key, value) {
           </div>
 
           <DynamicField
-            v-for="nested in field.fields || []"
+            v-for="nested in (field.fields || []).filter((item) => !item.hidden)"
             :key="`${field.key}-${index}-${nested.key}`"
             :field="nested"
             :model-value="row?.[nested.key]"
@@ -269,7 +277,7 @@ function updateRepeaterCell(index, key, value) {
           ref="fileInputRef"
           type="file"
           class="hidden"
-          :accept="mediaType === 'video' ? 'video/*' : 'image/*'"
+          :accept="acceptedMediaTypes"
           @change="onFileSelected"
         >
 
@@ -280,7 +288,7 @@ function updateRepeaterCell(index, key, value) {
           </div>
 
           <div class="min-w-0 flex-1">
-            <p class="text-xs text-slate-500">Изображение загружено</p>
+            <p class="text-xs text-slate-500">{{ mediaType === 'video' ? 'Видео загружено' : 'Изображение загружено' }}</p>
             <div class="mt-2 flex flex-wrap gap-2">
               <button
                 type="button"
@@ -288,7 +296,7 @@ function updateRepeaterCell(index, key, value) {
                 :disabled="uploading"
                 @click="openUploadDialog"
               >
-                {{ uploading ? 'Загрузка...' : 'Заменить' }}
+                {{ uploading ? 'Загрузка...' : 'Загрузить другой файл' }}
               </button>
               <button
                 type="button"
@@ -296,7 +304,7 @@ function updateRepeaterCell(index, key, value) {
                 :disabled="uploading"
                 @click="clearMedia"
               >
-                Удалить
+                {{ mediaType === 'video' ? 'Удалить видео' : 'Удалить изображение' }}
               </button>
             </div>
           </div>

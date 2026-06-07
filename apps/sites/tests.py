@@ -5,6 +5,10 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.sites.models import Site, SiteLead, SiteSection
+from apps.sites.a_meditation import (
+    A_MEDITATION_SECTION_SEEDS,
+    merge_content_defaults,
+)
 from clients.models import Client
 
 
@@ -133,8 +137,52 @@ class SitesApiTests(APITestCase):
         response = self.client.patch(url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["id"], self.hero.id)
+        self.assertEqual(response.data["display_title"], "Hero")
         self.hero.refresh_from_db()
         self.assertEqual(self.hero.content["title"], "Updated")
+
+    def test_a_meditation_sections_have_russian_display_titles(self):
+        meditation_site = Site.objects.create(
+            name="A Meditation",
+            slug="a-meditation",
+            domain="localhost:5173",
+            owner=self.user,
+            is_active=True,
+        )
+        section = SiteSection.objects.create(
+            site=meditation_site,
+            key="hero",
+            title="Hero",
+            section_type="hero",
+            order=1,
+            schema={"fields": [{"key": "title", "type": "text"}]},
+            content={"title": "Текущий текст"},
+        )
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(
+            reverse("admin-my-site-sections", kwargs={"site_id": meditation_site.id})
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data[0]["id"], section.id)
+        self.assertEqual(response.data[0]["display_title"], "Hero-блок")
+        self.assertEqual(response.data[0]["content"]["title"], "Текущий текст")
+
+    def test_a_meditation_contract_is_valid_and_merge_keeps_user_values(self):
+        for seed in A_MEDITATION_SECTION_SEEDS:
+            SiteSection.validate_schema(seed["schema"])
+            SiteSection.validate_content(seed["content"], seed["schema"])
+
+        merged = merge_content_defaults(
+            {"title": "Новый default", "description": "Описание"},
+            {"title": "Текст клиента", "legacy": "Удалить"},
+        )
+        self.assertEqual(
+            merged,
+            {"title": "Текст клиента", "description": "Описание"},
+        )
 
     def test_user_cannot_patch_foreign_section(self):
         foreign_section = SiteSection.objects.create(

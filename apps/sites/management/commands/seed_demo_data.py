@@ -12,6 +12,10 @@ from django.db import transaction
 from apps.accounts.models import ClientProfile
 from apps.mediafiles.models import MediaFile
 from apps.sites.models import SectionSchema, Site, SiteSection
+from apps.sites.a_meditation import (
+    A_MEDITATION_SECTION_SEEDS,
+    merge_content_defaults,
+)
 
 MEDIA_KEY_HINTS = ("image", "video", "avatar", "poster", "photo", "background")
 SECTION_MEDIA_FOLDER_ALIAS = {
@@ -552,13 +556,26 @@ SECTION_SEEDS = [
 class Command(BaseCommand):
     help = "Create and refresh full demo data for the public A Meditation site with media in Django MEDIA."
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            "--force-content",
+            action="store_true",
+            help="Replace existing section content with seed values.",
+        )
+        parser.add_argument(
+            "--reset-users",
+            action="store_true",
+            help="Delete other demo users. Never enabled by default.",
+        )
+
     @transaction.atomic
     def handle(self, *args, **options):
         user = self._upsert_admin_user()
-        self._cleanup_legacy_users(user)
+        if options["reset_users"]:
+            self._cleanup_legacy_users(user)
         self._upsert_profile(user)
         site = self._upsert_site(user)
-        self._upsert_sections(site)
+        self._upsert_sections(site, force_content=options["force_content"])
 
         self.stdout.write(self.style.SUCCESS("seed_demo_data completed."))
         self.stdout.write(f"site={site.slug}")
@@ -610,7 +627,7 @@ class Command(BaseCommand):
             slug=os.getenv("DEMO_SITE_SLUG", "a-meditation"),
             defaults={
                 "name": os.getenv("DEMO_SITE_NAME", "A Meditation"),
-                "domain": os.getenv("DEMO_SITE_DOMAIN", "localhost"),
+                "domain": os.getenv("DEMO_SITE_DOMAIN", "localhost:5173"),
                 "owner": owner,
                 "is_active": True,
                 "seo": {
@@ -730,9 +747,9 @@ class Command(BaseCommand):
         walk(schema.get("fields") or [], hydrated)
         return hydrated
 
-    def _upsert_sections(self, site):
+    def _upsert_sections(self, site, *, force_content=False):
         keep_keys = []
-        for section_seed in SECTION_SEEDS:
+        for section_seed in A_MEDITATION_SECTION_SEEDS:
             keep_keys.append(section_seed["key"])
 
             schema = deepcopy(section_seed["schema"])
@@ -747,7 +764,7 @@ class Command(BaseCommand):
                 },
             )
 
-            SiteSection.objects.update_or_create(
+            section, created = SiteSection.objects.get_or_create(
                 site=site,
                 key=section_seed["key"],
                 defaults={
@@ -770,4 +787,25 @@ class Command(BaseCommand):
                 },
             )
 
-        SiteSection.objects.filter(site=site).exclude(key__in=keep_keys).delete()
+            if created:
+                continue
+
+            section.title = section_seed["title"]
+            section.section_type = section_seed["key"]
+            section.order = section_seed["order"]
+            section.is_active = True
+            section.schema = schema
+            section.content = (
+                content
+                if force_content
+                else merge_content_defaults(content, section.content)
+            )
+            section.component_key = f"{section_seed['key']}-section"
+            section.settings = {
+                **(section.settings if isinstance(section.settings, dict) else {}),
+                "theme": "light",
+                "container": "xl",
+                "animation": "fade-up",
+            }
+            section.seo = section.seo if isinstance(section.seo, dict) else {}
+            section.save()
